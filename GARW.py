@@ -102,8 +102,6 @@ def RandomLayer(InputData, kernel = "Gaussian", distance = "Euclid", para = [], 
 				MaxVal = Xul[i][j]
 				Decision[i] = j
 
-
-
 	return Decision
 
 
