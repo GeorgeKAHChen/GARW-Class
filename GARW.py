@@ -5,7 +5,28 @@
 #		Copyright(c) KazukiAmakawa, all right reserved.
 #
 ############################################################
-from libpy import Init
+def RGBList2Table(InputImage):
+	import numpy as np
+	Size = np.shape(InputImage)
+	if Size[2] != 3 and Size[0] == 3:
+		return InputImage
+
+	RTable = []
+	GTable = []
+	BTable = []
+	for i in range(0, len(InputImage)):
+		RLine = []
+		GLine = []
+		BLine = []
+		for j in range(0, len(InputImage[i])):
+			RLine.append(InputImage[i][j][0])
+			GLine.append(InputImage[i][j][1])
+			BLine.append(InputImage[i][j][2])
+		RTable.append(RLine)
+		GTable.append(GLine)
+		BTable.append(BLine)
+	return np.array([RTable, GTable, BTable])
+
 
 def LayersBlock(input_fea_map, dim_channel, nb_class, name=None):
 	# conv
@@ -81,6 +102,10 @@ def RandomLayer(InputData, kernel = "Gaussian", distance = "Euclid", para = [], 
 		Puu[RealY][RealX] = results[i][2]
 		Psum[results[i][0]] += results[i][2]
 		Psum[results[i][1]] += results[i][2]
+
+	for i in range(0, len(Psum)):
+		if Psum[i] == 0:
+			Psum[i] += 1
 
 	#Calculate, negative for Puu = (I-Puu)
 	for i in range(0, SizeU):
