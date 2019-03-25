@@ -8,6 +8,9 @@
 def RGBList2Table(InputImage):
 	import numpy as np
 	Size = np.shape(InputImage)
+	if len(Size) != 3:
+		print("InputError: RGBList2Table function need input image with [[[R,G,B] * width] * height] parameter. Your input may RGB tabled image or grey image")
+		return [[[-1]], [[]], [[]]]
 	if Size[2] != 3 and Size[0] == 3:
 		return InputImage
 
@@ -246,6 +249,8 @@ def GARWNN():
 
 if __name__ == '__main__':
 	#For test every layer and functions
+	#This is not the begining of the program, it is just for the test!!!
+	#DO NOT RUN DIRECTLY IT IF YOU ARE NOT CONTRIBUTER
 	print(RandomLayer([[[1, 3], [4, 5], [3, 5]], [[2, 4], [2, 6], [2, 8] ,[4, 6]]], [0, 0, 1],  ["Gaussian", "Euclid", True, [0.01]]))
 
 
