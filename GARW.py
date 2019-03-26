@@ -170,9 +170,6 @@ if __name__ == '__main__':
 	#This is not the begining of the program, it is just for the test!!!
 	#DO NOT RUN DIRECTLY IT IF YOU ARE NOT CONTRIBUTER
 	print(RandomLayer([[[1, 3], [4, 5], [3, 5]], [[2, 4], [2, 6], [2, 8] ,[4, 6]]], [0, 1, 1],  ["Gaussian", "Euclid", True, [0.01]]))
-"""
-
-
 
 
 

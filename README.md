@@ -4,17 +4,6 @@ This is the main program of Group Attribution Random Walk Classification Method 
 ## Usage
 WARNING: This project may cannot be build on Windows. It is Unix only.
 
-Before you run this network, it is necessary to install these packages
-
-### For Ubuntu/Debian
-
-
-### For Fedora/Red-Hat
-
-
-### For MacOS/Darwin
-
-
 
 ## File Structure 
 ### Folder ./ 
@@ -59,3 +48,9 @@ Mail: KazukiAmakawa@gmail.com
 0.1.0: Added Group classification in RW fucntion<br/>
 0.1.1: Fixed unexcepted input error in GARW.RGBList2Table<br/>
 0.1.2: Fixed a bug in RW function, added version information in main readme file<br/>
+0.2.0: Added A3Model (Source Code: https://github.com/iamhankai/attribute-aware-attention) 
+in keras2 py3, not fixed bug and test<br/>
+0.2.1: A3MDebug, Fixed Bug, added License<br/>
+
+## LICENSE
+GNU GENERAL PUBLIC LICENSE Version 3

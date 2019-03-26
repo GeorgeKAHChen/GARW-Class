@@ -71,8 +71,7 @@ def GetFiles(FileDir, height, width):
 
 
 def A3MLoadModel(net, batch_size, nb_epoch, dropout, lambdas, attr_equal, 
-		region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list):
-
+		region_equal, nb_classes, nb_attributes, img_rows, img_cols, L):
 	#Import Files from keras
 	import sys
 	sys.path.append("..")
@@ -196,31 +195,20 @@ def A3MLoadModel(net, batch_size, nb_epoch, dropout, lambdas, attr_equal,
 	return model, loss_dict, weight_dict
 
 
-def A3MTrain(data_folder = "./CUB-200-2011",
-		dataset = "CUB",
-		net = "VGG16",
-		batch_size = 10,
-		nb_epoch = 10,
-		dropout = 0.5,
-		lambdas = [0.2,0.5,1.0],
-		attr_equal = False,
-		region_equal = False,
-		nb_classes = 200,
-		nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16, 6, 6, 15, 5, 5, 5, 16, 16, 16, 16, 5],
-		img_rows = 448,
-		img_cols = 448,
-		L = 14*14,
-		lr_list = [0.001,0.003,0.001,0.001,0.001,0.001,0.001,0.0001]):	
+def A3MTrain(data_folder, dataset, net, batch_size, nb_epoch, dropout, lambdas, 
+	attr_equal, region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list, model_weight_path):
 	
 	from keras.optimizers import SGD
 	from keras.preprocessing.image import ImageDataGenerator
 	import numpy as np
 	import CUB
-	model, loss_dict, weight_dict= A3MLoadModel(net, batch_size, nb_epoch, dropout, lambdas, attr_equal, 
-						region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list)
+
+	model, loss_dict, weight_dict = A3MLoadModel(net, batch_size, nb_epoch, dropout, 
+		lambdas, attr_equal, region_equal, nb_classes, nb_attributes, img_rows, img_cols, L)
 
 	# the data, shuffled and split between train and test sets
-	(X_train, y_train),(X_test, y_test),(A_train,A_test,C_A)=eval(dataset).load_data(data_folder, target_size=(img_rows, img_cols), bounding_box=True)
+	(X_train, y_train),(X_test, y_test),(A_train,A_test,C_A)=eval(dataset).load_data(
+		data_folder, target_size=(img_rows, img_cols), bounding_box=True)
 
 	print(X_train[100][1][50:60,100:110])
 	print('X_train shape:', X_train.shape)
@@ -294,23 +282,99 @@ def A3MTrain(data_folder = "./CUB-200-2011",
 		print('Main acc: %f' %(scores[-1]))
 
 	# save model
-	model.save_weights('./model/weights_'+net+str(lr)+'.h5')
+	model.save_weights(model_weight_path + net + str(lr)+'.h5')
 	print('train stage:',lr,' sgd done!')
 
 	return
 
 
-def A3MTest(model_weight_path = './model/weights_resnet50_86.1.h5',):
+def A3MTest(data_folder, dataset, net, batch_size, nb_epoch, dropout, lambdas, 
+	attr_equal, region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list, model_weight_path, savefile = "false"):
+	
+	import os
+	import Init
+	from copy import deepcopy
+	import GARW
+
 	model = model, loss_dict, weight_dict= A3MLoadModel(net, batch_size, nb_epoch, dropout, lambdas, attr_equal, 
 		region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list)
 
 	model.load_weights(model_weight_path)
-	return
+
+	ImageList = []
+	RootFolder = ""
+	ttl = -1
+	imgs = 0
+
+	for root, dirs, files in os.walk(FileDir):
+		#Get direction and location
+		if ttl == -1:
+			RootFolder = root
+			print(root)
+			Catagory = deepcopy(dirs)
+			ttl += 1
+			continue
+
+		for i in range(0, len(files)):
+			FileName = RootFolder + "/" + Catagory[ttl] + "/" + files[i]
+			#print(FileName)
+			img = GARW.RGBList2Table( misc.imresize( np.array(Image.open(FileName)), (img_rows, img_cols, 3 )) )
+
+			if img[0][0][0][0] == -1:
+				continue
+
+			imgs += 1
+			if imgs % 1000 == 0 and imgs != 1:
+				print("import image: " + str(imgs))
+
+			ImageList.append(img)
+
+		ttl += 1
+
+	if savefile:
+		Init.ArrOutput(model.predict(ImageList))
+
+	return model.predict(ImageList)
+
+
+def A3Model(Mode = "Train",
+		data_folder = "./CUB_200_2011",
+		dataset = "CUB",
+		net = "VGG16",
+		model_weight_path = './model/weights_resnet50_86.1.h5',
+		batch_size = 10,
+		nb_epoch = 10,
+		dropout = 0.5,
+		lambdas = [0.2,0.5,1.0],
+		attr_equal = False,
+		region_equal = False,
+		nb_classes = 200,
+		nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16, 6, 6, 15, 5, 5, 5, 16, 16, 16, 16, 5],
+		img_rows = 448,
+		img_cols = 448,
+		L = 14*14,
+		lr_list = [0.001,0.003,0.001,0.001,0.001,0.001,0.001,0.0001]):
+
+	import os
+
+	if Mode != "Train" or Mode != "Test":
+		print("InputError: Input model must be detemined as 'Train' for model training or 'Test' for testing model")
+	if Mode == "Train":
+		if not os.path.exists(dataset + ".py"):
+			print("InputError: Cannot find the file called " + dataset + ".py for input signs")
+		#model_weight_path = "./Output"
+
+		A3MTrain(data_folder, dataset, net, batch_size, nb_epoch, dropout, lambdas, 
+			attr_equal, region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list, model_weight_path)
+
+	if Mode == "Test":
+		A3MTest(data_folder, dataset, net, batch_size, nb_epoch, dropout, lambdas, 
+			attr_equal, region_equal, nb_classes, nb_attributes, img_rows, img_cols, L, lr_list, model_weight_path)
 
 
 if __name__ == '__main__':
-	GetFiles(FileDir = "./Input", height = 448, width = 448)
-
+	#GetFiles(FileDir = "./Input", height = 448, width = 448)
+	A3Model(model_weight_path = "./Output")
 
 
 
