@@ -5,6 +5,9 @@
 #		Copyright(c) KazukiAmakawa, all right reserved.
 #
 ############################################################
+from keras import backend as K
+from keras.layers import Layer
+
 def RGBList2Table(InputImage):
 	import numpy as np
 	Size = np.shape(InputImage)
@@ -29,22 +32,6 @@ def RGBList2Table(InputImage):
 		GTable.append(GLine)
 		BTable.append(BLine)
 	return np.array([RTable, GTable, BTable])
-
-
-def LayersBlock(input_fea_map, dim_channel, nb_class, name=None):
-	# conv
-	fea_map = Convolution1D(dim_channel, 1, border_mode='same')(share_fea_map)
-	fea_map = BatchNormalization(axis=2)(fea_map)
-	fea_map = Activation('relu')(fea_map)
-	# pool
-	pool = GlobalAveragePooling1D(name=name+'_avg_pool')(fea_map)
-	pool = BatchNormalization()(pool)
-	pool = Activation('relu')(pool)
-	# classification
-	prob = Dropout(dropout)(pool)
-	prob = Dense(nb_class)(pool)
-	prob = Activation(activation='softmax',name=name)(prob)
-	return pool, prob
 
 
 def GetDistance(Inps, Kernel, Distance, Parameter):
@@ -176,77 +163,6 @@ def RandomLayer(InputData, Group, Para = ["Gaussian", "Euclid", False, [0.01]]):
 	return Decision
 
 
-	
-
-
-	
-
-
-
-
-
-			
-
-
-
-
-
-"""
-def GARWNN():
-	from keras.layer import Input
-
-	#Network Initial and Parameter Definition
-	ImgHeight, ImgWidth = 448, 448
-	SharedLayerName = 'block5_pool' if net == 'VGG16' else 'activation_49'
-	FinalDim = 512 if net=='VGG16' else 2048
-	LayerSize = 14 * 14
-
-
-	#Initial Layer
-	inputs = Input(shape=(3, ImgHeight, ImgWidth))
-	out_list = {}
-	
-
-	#Global Feature Map Layer
-	PreTrainModel = eval(net)(input_tensor = inputs, include_top = False, weights = 'imagenet')
-	FeaMap = PreTrainModel.get_layer(SharedLayerName).output
-	FeaMap = Reshape((FinalDim, LayerSize), name = 'reshape_layer')(FeaMap)
-	FeaMap = Permute((2, 1))(FeaMap)
-
-
-	#Catagory Feature Layer
-	CataFeature, CataProb = LayersBlock(FeaMap, dim_channel, nb_class, name=None):
-	out_list.append(CataProb)
-	loss_dict['p0'] = 'categorical_crossentropy'
-	weight_dict['p0'] = lambdas[0]
-
-
-	#Attribute Classification Layer
-	attr_fea_list = []
-	for i in range(len(nb_attributes)):
-		name ='attr'+str(i)
-		attr_prob,attr_pool,_ = LayersBlock(FeaMap, emb_dim, nb_attributes[i], name)
-		out_list.append(attr_prob)
-		attr_fea_list.append(attr_pool)
-		loss_dict[name] = 'categorical_crossentropy'
-		weight_dict[name] = alphas[i]
-
-	#Attibute Score Layer
-
-
-	#Group Attribute Embedding Layer
-
-
-	#Random Walk Layer
-
-
-	return NetworkSturture
-"""
-
-
-
-
-
 
 
 if __name__ == '__main__':
@@ -254,7 +170,7 @@ if __name__ == '__main__':
 	#This is not the begining of the program, it is just for the test!!!
 	#DO NOT RUN DIRECTLY IT IF YOU ARE NOT CONTRIBUTER
 	print(RandomLayer([[[1, 3], [4, 5], [3, 5]], [[2, 4], [2, 6], [2, 8] ,[4, 6]]], [0, 1, 1],  ["Gaussian", "Euclid", True, [0.01]]))
-
+"""
 
 
 
