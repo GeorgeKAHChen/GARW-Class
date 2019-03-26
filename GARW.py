@@ -155,11 +155,13 @@ def RandomLayer(InputData, Group, Para = ["Gaussian", "Euclid", False, [0.01]]):
 				SingleGroup[Group[j]] += Xul[i][j]
 
 			#Find maximum group
+			print(Xul[i])
+			print(SingleGroup)
 			MaxVal = 0
 			for j in range(0, len(SingleGroup)):
 				if SingleGroup[j] > MaxVal:
 					MaxVal = SingleGroup[j]
-					Decision[i] = Group[j]
+					Decision[i] = j
 
 	if FlagTest:
 		from libpy import Init
@@ -251,7 +253,7 @@ if __name__ == '__main__':
 	#For test every layer and functions
 	#This is not the begining of the program, it is just for the test!!!
 	#DO NOT RUN DIRECTLY IT IF YOU ARE NOT CONTRIBUTER
-	print(RandomLayer([[[1, 3], [4, 5], [3, 5]], [[2, 4], [2, 6], [2, 8] ,[4, 6]]], [0, 0, 1],  ["Gaussian", "Euclid", True, [0.01]]))
+	print(RandomLayer([[[1, 3], [4, 5], [3, 5]], [[2, 4], [2, 6], [2, 8] ,[4, 6]]], [0, 1, 1],  ["Gaussian", "Euclid", True, [0.01]]))
 
 
 

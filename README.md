@@ -51,3 +51,10 @@ Telegram: https://t.me/KazukiAmakawa
 
 Mail: KazukiAmakawa@gmail.com
 
+
+## Version Information
+0.0.1: Program build, RW function build<br/>
+0.0.2: Added GARW.RGBList2Table and A3MTest.py for fine-gained feature testing<br/>
+0.1.0: Added Group classification in RW fucntion<br/>
+0.1.1: Fixed unexcepted input error in GARW.RGBList2Table<br/>
+0.1.2: Fixed a bug in RW layer, added version information in main readme file<br/>
