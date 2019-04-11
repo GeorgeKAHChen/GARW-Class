@@ -1,35 +1,25 @@
 import numpy as np
-
+"""
 from keras.layers import Input, Conv2D, LeakyReLU, MaxPooling2D, Flatten, Dense
+from keras.layers import Input
 from keras.models import Model
 from keras import backend as K
 from keras.layers import Layer
 from keras import backend as K
 from keras.engine.topology import Layer
-
+from keras.datasets import cifar10
+from keras import optimizers
 """
-class MyLayer(Layer):
-
-	def __init__(self, output_dim, **kwargs):
-		self.output_dim = output_dim
-		super(MyLayer, self).__init__(**kwargs)
-
-	def build(self, input_shape):
-		# 为该层创建一个可训练的权重
-		self.kernel = self.add_weight(name='kernel', 
-										shape=(input_shape[1], self.output_dim),
-										initializer='uniform',
-										trainable=True)
-		super(MyLayer, self).build(input_shape)  # 一定要在最后调用它
-
-	def call(self, x):
-		return K.dot(x, self.kernel)
-
-	def compute_output_shape(self, input_shape):
-		return (input_shape[0], self.output_dim)
+from kerasref.keras.layers import Input, Conv2D, LeakyReLU, MaxPooling2D, Flatten, Dense
+from kerasref.keras.layers import Input
+from kerasref.keras.models import Model
+from kerasref.keras import backend as K
+from kerasref.keras.layers import Layer
+from kerasref.keras import backend as K
+from kerasref.keras.engine.topology import Layer
+from kerasref.keras.datasets import cifar10
+from kerasref.keras import optimizers
 """
-
-
 class RandomWalkLayer(Layer):
 	def __init__(self, output_dim, Method = ["average", [0, ]], Parameter = [[0.01], "Gaussian", "Euclid"], **kwargs):
 		self.method = Method[0]
@@ -42,31 +32,98 @@ class RandomWalkLayer(Layer):
 
 	def build(self, input_shape):
 		self.kernel = self.add_weight(name='RWKernel', 
-									  shape=(input_shape[1], self.output_dim), 
+									  shape=(self.output_dim, input_shape[1]), 
 									  initializer='uniform',
 									  trainable=True)
 		self.InpSize = input_shape[1]
 		super(RandomWalkLayer, self).build(input_shape)
 
-	def call(self, x):
+	def call(self, inputs):
 		#Get Euclid distance for the classification
-		results = []
-		for j in range(0, self.output_dim):
-			kernels = []
-			for i in range(0, self.InpSize):
-				kernels.append(self.kernel[i][j])
-			return K.sqrt(K.sum(K.square(kernels - x), axis=-1))
+		if self.InpSize == 1:
+			#Testing Model with Distance Classifier
+			for j in range(0, self.output_dim):
+				#print(inputs.shape[0], inputs.shape[1], len(kernels))
+				Partial.append(K.sqrt(K.sum(K.square(self.kernel[j] - x_elem), axis=-1)))
+			results.append(Partial)
+			return [results]
+			#print(len(results), len(results[0]))
+
+		elif self.InpSize <= 0:
+			#Error Print
+			ValueError("Input Training/Testing need one and more than one input")
 		
-		return results
+		else:
+			#Training Model with Fully Random Walk Classifier
+			import RandomWalk			#Import Random Walk Functions for Training
+		
+			results = [[] for n in range(self.InpSize)]
+			i = 0
+			for x_elem in to_list(inputs):
+				Partial = []
+				for j in range(0, self.output_dim):
+					#print(inputs.shape[0], inputs.shape[1], len(kernels))
+					Partial.append(K.sqrt(K.sum(K.square(self.kernel[j] - x_elem), axis=-1)))
+				results.append(Partial)
+				print(len(results), len(results[0]))#, results[0].shape[0])
+			return results
+			#return K.square(self.kernel[0] - x_elem)
 
 	def compute_output_shape(self, input_shape):
-		return (input_shape[0], self.output_dim)
+		return (input_shape[0], input_shape[1], self.output_dim)
+"""
+
+
+
+def WeightMain(i, inputs, kernel):
+	import tensorflow as tf
+	i += 1
+	output = []
+	for j in range(0, kernel.shape[0]):
+		output.append(tf.sqrt(tf.reduce_sum(tf.square(inputs[i] - kernel[j]), axis = 0)))
+
+	return i, tf.Variable(output, tf.float32)
+
+
+def cond(i, inputs, kernel):
+	print("qujimabi")
+	print(inputs.shape[0])
+	if i < inputs.shape[0]:
+		return True
+	else:
+		return False
+
+
+class NLDense(Layer):
+	def __init__(self, output_dim, **kwargs):
+		self.output_dim = output_dim
+		super(NLDense, self).__init__(**kwargs)
+
+	def build(self, input_shape):
+		self.kernel = self.add_weight(name = 'NLKernel', 
+									  shape = (self.output_dim, input_shape[-1]), 
+									  initializer = 'uniform',
+									  trainable = True)
+		super(NLDense, self).build(input_shape)
+
+	def call(self, inputs):
+		import tensorflow as tf
+		i = 0
+		i, output = tf.while_loop(cond, WeightMain, [i, inputs, self.kernel], shape_invariants = [1, self.output_dim, inputs.shape[-1]])
+		return output
+
+	def compute_output_shape(self, input_shape):
+		output_shape = list(input_shape)
+		output_shape[-1] = self.output_dim - 1
+		print(output_shape)
+		return tuple(output_shape)
+
 
 
 
 def TestModel():
-	InpLay = Input(shape=(3, 32, 32))
-	Block1 = Conv2D(32, kernel_size=(3, 3),activation='linear', input_shape=(3,32,32), padding='same')(InpLay)
+	InpLay = Input(shape=(32, 32, 3))
+	Block1 = Conv2D(32, kernel_size=(3, 3),activation='linear', input_shape=(32, 32, 3), padding='same')(InpLay)
 	Block1 = LeakyReLU(alpha=0.1)(Block1)
 	Block1 = MaxPooling2D((4, 4),padding='same')(Block1)
 	
@@ -81,22 +138,18 @@ def TestModel():
 	Finals = Flatten()(Block3)
 	Finals = Dense(64, activation='linear')(Finals)
 	Finals = LeakyReLU(alpha=0.1)(Finals)
-	Finals = RandomWalkLayer(output_dim = 2)(Finals)
-	#Finals = Dense(2, activation='softmax')(Finals)
+	#Finals = NLDense(2)(Finals)
+	Finals = Dense(2, activation='softmax')(Finals)
 	#Here we used random walk for classification
 
 	model = Model(inputs = InpLay, outputs = Finals)
 	model.summary()
 
-	return model, InpLay, Finals
+	return model, Finals
 
 
-if __name__ == '__main__':
-	#Import CNN model
-	model, Input, Output =TestModel()
-
+def RWTrain():
 	#Import MNIST dataset
-	from keras.datasets import cifar10
 	(x_train, y_train),(x_test, y_test) = cifar10.load_data()
 	X_Used = []
 	Y_Used = []
@@ -105,27 +158,42 @@ if __name__ == '__main__':
 
 	for i in range(0, len(x_train)):
 		if y_train[i][0] == 0 :
-			X_Used.append(x_train[i])
-			Y_Used.append([0])
+			X_Used.append(np.array(x_train[i]))
+			Y_Used.append(0)
 		if y_train[i][0] == 1:
-			X_Used.append(x_train[i])
-			Y_Used.append([1])
+			X_Used.append(np.array(x_train[i]))
+			Y_Used.append(1)
 	
 	for i in range(0, len(x_test)):
 		if y_test[i][0] == 0:
-			X_Sign.append(x_test[i])
-			Y_Sign.append([0])
+			X_Sign.append(np.array(x_test[i]))
+			Y_Sign.append(0)
 		if y_test[i][0] == 1:
-			X_Sign.append(x_test[i])
-			Y_Sign.append([1])
+			X_Sign.append(np.array(x_test[i]))
+			Y_Sign.append(1)
 
 	X_Used = np.array(X_Used)
 	Y_Used = np.array(Y_Used)
 	X_Sign = np.array(X_Sign)
 	Y_Sign = np.array(Y_Sign)
-
 	print(len(X_Used), len(X_Sign))
 
-	model, Input, Output = TestModel()
-	model.compile(loss=Output, metrics=['accuracy'])
-	model.fit(x = [X_Used, Y_Used], y = [X_Sign, Y_Sign])
+
+	#Import Model
+	model, Output = TestModel()
+	sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+	#Using Stochastic gradient descent(SGD) for optimizer
+	model.compile(loss='sparse_categorical_crossentropy', metrics=['accuracy'], optimizer = sgd)
+
+	#Training model
+	model.fit(x = X_Used, y = Y_Used, validation_data=(X_Sign, Y_Sign))
+	model.save_weights("./Output/Model.h5")
+
+
+if __name__ == '__main__':
+	RWTrain()
+
+
+
+
+
