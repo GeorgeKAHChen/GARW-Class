@@ -127,6 +127,7 @@ class NLDense(Layer):
 	
 		return tf.convert_to_tensor(outputs)
 		"""
+		
 		with tf.variable_scope('pairwise_dist'):
 			# squared norms of each row in A and B
 			na = tf.reduce_sum(tf.square(inputs), 1)
