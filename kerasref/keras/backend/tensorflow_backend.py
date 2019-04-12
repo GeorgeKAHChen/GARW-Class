@@ -1120,8 +1120,10 @@ def dot(x, y):
         return tf.reshape(tf.matmul(xt, yt),
                           x_shape[:-1] + y_shape[:-2] + y_shape[-1:])
     if is_sparse(x):
+        print("sb1")
         out = tf.sparse_tensor_dense_matmul(x, y)
     else:
+        print("sb2")
         out = tf.matmul(x, y)
     return out
 

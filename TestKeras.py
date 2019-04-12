@@ -1,5 +1,5 @@
 import numpy as np
-"""
+
 from keras.layers import Input, Conv2D, LeakyReLU, MaxPooling2D, Flatten, Dense
 from keras.layers import Input
 from keras.models import Model
@@ -19,6 +19,7 @@ from kerasref.keras import backend as K
 from kerasref.keras.engine.topology import Layer
 from kerasref.keras.datasets import cifar10
 from kerasref.keras import optimizers
+"""
 """
 class RandomWalkLayer(Layer):
 	def __init__(self, output_dim, Method = ["average", [0, ]], Parameter = [[0.01], "Gaussian", "Euclid"], **kwargs):
@@ -71,9 +72,6 @@ class RandomWalkLayer(Layer):
 
 	def compute_output_shape(self, input_shape):
 		return (input_shape[0], input_shape[1], self.output_dim)
-"""
-
-
 
 def WeightMain(i, inputs, kernel):
 	import tensorflow as tf
@@ -92,6 +90,9 @@ def cond(i, inputs, kernel):
 		return True
 	else:
 		return False
+"""
+
+
 
 
 class NLDense(Layer):
@@ -108,9 +109,39 @@ class NLDense(Layer):
 
 	def call(self, inputs):
 		import tensorflow as tf
-		i = 0
-		i, output = tf.while_loop(cond, WeightMain, [i, inputs, self.kernel], shape_invariants = [1, self.output_dim, inputs.shape[-1]])
-		return output
+		"""
+		InputShape = inputs.get_shape().as_list()
+		KernelShape = self.kernel.get_shape().as_list()
+		outputs = []
+
+		sess = tf.Session()
+
+		for i in range(0, InputShape[0]):
+			GroupDis = []
+			for j in range(0, KernelShape[0]):
+				euclidean_dist = (tf.sqrt(tf.reduce_sum(tf.square(input_tensor[i]-tensor_iter[j]), 1)))
+				sess.run(euclidean_dist)
+				euclidean_row = euclidean_dist.eval(session=sess)
+				GroupDis.append(euclidean_row)
+			outputs.append(GroupDis)
+	
+		return tf.convert_to_tensor(outputs)
+		"""
+		with tf.variable_scope('pairwise_dist'):
+			# squared norms of each row in A and B
+			na = tf.reduce_sum(tf.square(inputs), 1)
+			nb = tf.reduce_sum(tf.square(self.kernel), 1)
+
+			# na as a row and nb as a co"lumn vectors
+			na = tf.reshape(na, [-1, 1])
+			nb = tf.reshape(nb, [1, -1])
+
+			# return pairwise euclidead difference matrix
+			D = tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0))
+		return D
+
+
+
 
 	def compute_output_shape(self, input_shape):
 		output_shape = list(input_shape)
@@ -138,8 +169,8 @@ def TestModel():
 	Finals = Flatten()(Block3)
 	Finals = Dense(64, activation='linear')(Finals)
 	Finals = LeakyReLU(alpha=0.1)(Finals)
-	#Finals = NLDense(2)(Finals)
-	Finals = Dense(2, activation='softmax')(Finals)
+	Finals = NLDense(2)(Finals)
+	#Finals = Dense(2, activation='softmax')(Finals)
 	#Here we used random walk for classification
 
 	model = Model(inputs = InpLay, outputs = Finals)
@@ -181,12 +212,12 @@ def RWTrain():
 
 	#Import Model
 	model, Output = TestModel()
-	sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+	sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
 	#Using Stochastic gradient descent(SGD) for optimizer
 	model.compile(loss='sparse_categorical_crossentropy', metrics=['accuracy'], optimizer = sgd)
 
 	#Training model
-	model.fit(x = X_Used, y = Y_Used, validation_data=(X_Sign, Y_Sign))
+	model.fit(x = X_Used, y = Y_Used, validation_split=0.2, epochs = 20)
 	model.save_weights("./Output/Model.h5")
 
 
