@@ -109,40 +109,23 @@ class NLDense(Layer):
 
 	def call(self, inputs):
 		import tensorflow as tf
-		"""
-		InputShape = inputs.get_shape().as_list()
-		KernelShape = self.kernel.get_shape().as_list()
-		outputs = []
-
-		sess = tf.Session()
-
-		for i in range(0, InputShape[0]):
-			GroupDis = []
-			for j in range(0, KernelShape[0]):
-				euclidean_dist = (tf.sqrt(tf.reduce_sum(tf.square(input_tensor[i]-tensor_iter[j]), 1)))
-				sess.run(euclidean_dist)
-				euclidean_row = euclidean_dist.eval(session=sess)
-				GroupDis.append(euclidean_row)
-			outputs.append(GroupDis)
-	
-		return tf.convert_to_tensor(outputs)
-		"""
-		
 		with tf.variable_scope('pairwise_dist'):
 			# squared norms of each row in A and B
 			na = tf.reduce_sum(tf.square(inputs), 1)
 			nb = tf.reduce_sum(tf.square(self.kernel), 1)
 
-			# na as a row and nb as a co"lumn vectors
+			# na as a row and nb as a column vectors
 			na = tf.reshape(na, [-1, 1])
 			nb = tf.reshape(nb, [1, -1])
 
 			# return pairwise euclidead difference matrix
-			D = tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0))
+			D = tf.math.exp(0.01 * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
+			SumD = tf.reduce_sum(D, 1)
+			outputs = tf.divide(D, SumD)
 		return D
 
 
-
+		
 
 	def compute_output_shape(self, input_shape):
 		output_shape = list(input_shape)
@@ -218,7 +201,7 @@ def RWTrain():
 	model.compile(loss='sparse_categorical_crossentropy', metrics=['accuracy'], optimizer = sgd)
 
 	#Training model
-	model.fit(x = X_Used, y = Y_Used, validation_split=0.2, epochs = 20)
+	model.fit(x = X_Used, y = Y_Used, validation_split=0.2, epochs = 10)
 	model.save_weights("./Output/Model.h5")
 
 
