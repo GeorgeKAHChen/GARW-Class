@@ -1,1 +1,2 @@
-ShareNetWork=VGG16
+main:
+	python NLRWMain.py
