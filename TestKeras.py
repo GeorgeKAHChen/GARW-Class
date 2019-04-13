@@ -119,7 +119,7 @@ class NLDense(Layer):
 			nb = tf.reshape(nb, [1, -1])
 
 			# return pairwise euclidead difference matrix
-			D = tf.math.exp(0.01 * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
+			D = tf.exp(0.01 * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
 			SumD = tf.reduce_sum(D, 1)
 			outputs = tf.divide(D, SumD)
 		return D
