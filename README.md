@@ -15,8 +15,8 @@ makefile: Parameter setting files and actual runing file
 
 P.S. You can using the main.py file directly, however, it is necessary for you to detemine every necessary parameter. Here are table of parameter introduction
 
--t runing the program with training model
--r runing the program with test model(after model training)
+-t runing the program with training model<br/>
+-r runing the program with test model(after model training)<br/>
 
 ### Folder ./Output
 This folder will include every output files 
@@ -51,14 +51,14 @@ Mail: KazukiAmakawa@gmail.com
 0.2.0: Added A3Model (Source Code: https://github.com/iamhankai/attribute-aware-attention) 
 in keras2 py3, not fixed bug and test<br/>
 0.2.1: A3MDebug, Fixed Bug, added License<br/>
-0.2.2: Add Ideneity Layer Test Files
-0.3.0: Added initial random layer without training part
-0.3.1: Added keras source code for own layer testing
-0.3.2: Distance is finish with ref notes, also deleted keras ref
-0.3.3: Non-linear Layer finished, need test
-0.3.3: (A Stable Versiom in Non-Linear Classification) fixed bug in tf.exp(tf.math.exp -> tf.exp)
-0.4.0: Added Random Walk Layer for testing, fixed bug in layer shape, changed makefile for fast using, changed filename
-0.4.1: Fixed filename and several bug, added version information into README.md
+0.2.2: Add Ideneity Layer Test Files<br/>
+0.3.0: Added initial random layer without training part<br/>
+0.3.1: Added keras source code for own layer testing<br/>
+0.3.2: Distance is finish with ref notes, also deleted keras ref<br/>
+0.3.3: Non-linear Layer finished, need test<br/>
+0.3.3: (A Stable Versiom in Non-Linear Classification) fixed bug in tf.exp(tf.math.exp -> tf.exp)<br/>
+0.4.0: Added Random Walk Layer for testing, fixed bug in layer shape, changed makefile for fast using, changed filename<br/>
+0.4.1: Fixed filename and several bug, added version information into README.md, deleted useless files<br/>
 
 ## LICENSE
 GNU GENERAL PUBLIC LICENSE Version 3

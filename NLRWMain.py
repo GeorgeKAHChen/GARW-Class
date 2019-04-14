@@ -10,7 +10,8 @@ from keras.engine.topology import Layer
 from keras.datasets import mnist
 from keras import optimizers
 
-
+import numpy as np
+np.random.seed(9621)
 
 class NLDense(Layer):
 	def __init__(self, output_dim, **kwargs):
@@ -67,6 +68,7 @@ class NLRWDense(Layer):
 
 	def call(self, inputs):
 		import tensorflow as tf
+		test = True
 		with tf.variable_scope('pairwise_dist'):
 			# squared norms of each row in A and B
 			na = tf.reduce_sum(tf.square(inputs), 1)
@@ -75,17 +77,20 @@ class NLRWDense(Layer):
 			# na as a row and nb as a column vectors
 			na = tf.reshape(na, [-1, 1])
 			nb = tf.reshape(nb, [1, -1])
-
+		
 			# return pairwise euclidead difference matrix
 			Tul = tf.exp(self.distant_parameter * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
 			SumTul = tf.reduce_sum(Tul, 1)
+			SumTul = tf.reshape(SumTul, [-1, 1])
 			Tuu = tf.exp(self.distant_parameter * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, inputs, False, True) + na, 0.0)))
 			SumTuu = tf.reduce_sum(Tuu, 1)
-			SumMatrix = SumTul + SumTuu
+			SumTuu = tf.reshape(SumTuu, [-1, 1])
+			SumMatrix = tf.add(SumTul, SumTuu)
 			Pul = tf.divide(Tul, SumMatrix)
 			Puu = tf.divide(Tuu, SumMatrix)
 			I = tf.eye(tf.shape(inputs)[0])
-			outputs = tf.linalg.inv(I - Puu) * Pul
+			outputs = tf.matmul(tf.linalg.inv(I - Puu), Pul, False, False)
+			#outputs = tf.matmul(I - Puu, Pul, False, False)
 		return outputs
 
 	def compute_output_shape(self, input_shape):
@@ -138,7 +143,7 @@ def RWTrain():
 	
 	#Import Model
 	model, Output = TestModel()
-	sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+	sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 	#Using Stochastic gradient descent(SGD) for optimizer
 	model.compile(loss='categorical_crossentropy', metrics=['accuracy'], optimizer = sgd)
 
