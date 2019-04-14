@@ -13,47 +13,12 @@ from keras import optimizers
 import numpy as np
 np.random.seed(9621)
 
-class NLDense(Layer):
-	def __init__(self, output_dim, **kwargs):
-		self.output_dim = output_dim
-		super(NLDense, self).__init__(**kwargs)
-
-	def build(self, input_shape):
-		self.kernel = self.add_weight(name = 'NLKernel', 
-									  shape = (self.output_dim, input_shape[-1]), 
-									  initializer = 'uniform',
-									  trainable = True)
-		super(NLDense, self).build(input_shape)
-
-	def call(self, inputs):
-		import tensorflow as tf
-		with tf.variable_scope('pairwise_dist'):
-			# squared norms of each row in A and B
-			na = tf.reduce_sum(tf.square(inputs), 1)
-			nb = tf.reduce_sum(tf.square(self.kernel), 1)
-
-			# na as a row and nb as a column vectors
-			na = tf.reshape(na, [-1, 1])
-			nb = tf.reshape(nb, [1, -1])
-
-			# return pairwise euclidead difference matrix
-			D = tf.exp(-0.05 * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
-			SumD = tf.reduce_sum(D, 1)
-			outputs = tf.divide(D, SumD)
-		return D
-
-	def compute_output_shape(self, input_shape):
-		output_shape = list(input_shape)
-		output_shape[-1] = self.output_dim
-		print(output_shape)
-		return tuple(output_shape)
-
-
 
 class NLRWDense(Layer):
 	def __init__(self, 
 				output_dim, 
-				distant_parameter = 0.05, 
+				distant_parameter = 0.05,
+				Model = "RW",
 				**kwargs):
 		self.output_dim = output_dim
 		self.distant_parameter = distant_parameter
@@ -69,6 +34,7 @@ class NLRWDense(Layer):
 	def call(self, inputs):
 		import tensorflow as tf
 		test = True
+		outputs = ()
 		with tf.variable_scope('pairwise_dist'):
 			# squared norms of each row in A and B
 			na = tf.reduce_sum(tf.square(inputs), 1)
@@ -82,15 +48,20 @@ class NLRWDense(Layer):
 			Tul = tf.exp(self.distant_parameter * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, self.kernel, False, True) + nb, 0.0)))
 			SumTul = tf.reduce_sum(Tul, 1)
 			SumTul = tf.reshape(SumTul, [-1, 1])
-			Tuu = tf.exp(self.distant_parameter * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, inputs, False, True) + na, 0.0)))
-			SumTuu = tf.reduce_sum(Tuu, 1)
-			SumTuu = tf.reshape(SumTuu, [-1, 1])
-			SumMatrix = tf.add(SumTul, SumTuu)
-			Pul = tf.divide(Tul, SumMatrix)
-			Puu = tf.divide(Tuu, SumMatrix)
-			I = tf.eye(tf.shape(inputs)[0])
-			outputs = tf.matmul(tf.linalg.inv(I - Puu), Pul, False, False)
-			#outputs = tf.matmul(I - Puu, Pul, False, False)
+
+			if Model == "NL":
+				outputs = outputs = tf.divide(Tul, SumTul)
+			
+			if Model == "RW"
+				Tuu = tf.exp(self.distant_parameter * tf.sqrt(tf.maximum(na - 2*tf.matmul(inputs, inputs, False, True) + na, 0.0)))
+				SumTuu = tf.reduce_sum(Tuu, 1)
+				SumTuu = tf.reshape(SumTuu, [-1, 1])
+				SumMatrix = tf.add(SumTul, SumTuu)
+				Pul = tf.divide(Tul, SumMatrix)
+				Puu = tf.divide(Tuu, SumMatrix)
+				I = tf.eye(tf.shape(inputs)[0])
+				outputs = tf.matmul(tf.linalg.inv(I - Puu), Pul, False, False)
+
 		return outputs
 
 	def compute_output_shape(self, input_shape):
