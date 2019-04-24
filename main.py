@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-import Init
+from libpy import Init
 import NLRWClass
 
 class Net(nn.Module):

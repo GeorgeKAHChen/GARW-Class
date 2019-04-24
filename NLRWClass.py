@@ -1,29 +1,40 @@
 import torch
 import torch.nn as nn
 
-import Init             #Import my own functions for test
+from libpy import Init             #Import my own functions for test
 
 class NLRWDense(nn.Module):
-    def __init__(self, input_features, output_features, work_style = "NL", distant_parameter = 0.1, tool = "cuda"):
+    def __init__(self, input_features, output_features, work_style = "NL", distant_parameter = 0.1, device = "cuda"):
         super(NLRWDense, self).__init__()
         self.input_features = input_features
         self.output_features = output_features
         self.work_style = work_style
         self.distant_parameter = distant_parameter
-        self.tool = tool
+        self.device = device
 
         self.weight = nn.Parameter(torch.Tensor(output_features, input_features))
-        self.weight.data.uniform_(-0.1, 0.1)
+        self.weight.data.uniform_(-1, 1)
 
 
     def forward(self, input):
+        Zero = torch.zeros(1).to(self.device)
+        print(self.weight)
         wei2 = torch.sum(torch.mul(self.weight, self.weight), dim = 1)
         inp2 = torch.sum(torch.mul(input, input), dim = 1)
-        print(input, inp2)
+        #print(input, inp2)
         wei2 = wei2.reshape([1, -1])
         inp2 = inp2.reshape([-1, 1])
         #print(wei2, inp2)
-        Tul = torch.exp(  - self.distant_parameter * torch.sqrt( inp2 - 2 * torch.mm(input, self.weight.t()) + wei2 )  )
+
+        Tul = torch.exp( 
+                        -self.distant_parameter * 
+                            torch.sqrt( 
+                                torch.max(
+                                    inp2 - 2 * torch.mm(input, self.weight.t()) + wei2, 
+                                    Zero
+                                )
+                            )
+                        )
 
         #print(Tul)
         #Main Train and call function
@@ -36,11 +47,17 @@ class NLRWDense(nn.Module):
             return outputs
       
         elif self.work_style == "RW":
-            if self.tool == "cuda":
-                torch.set_default_tensor_type('torch.cuda.FloatTensor')
-            I = torch.eye(input.size()[0])
-            
-            Tuu = torch.exp(- self.distant_parameter * torch.sqrt(inp2 - 2*torch.mm(input, input.t()) + inp2.t()))
+            I = torch.eye(input.size()[0]).to(self.device)
+
+            Tuu = torch.exp(
+                            - self.distant_parameter * 
+                                torch.sqrt(
+                                    torch.max(
+                                        inp2 - 2*torch.mm(input, input.t()) + inp2.t(), 
+                                        Zero
+                                    )
+                                )
+                            )
             Tuu = Tuu - I
 
             SumTuu = torch.sum(Tuu, dim = 1)
