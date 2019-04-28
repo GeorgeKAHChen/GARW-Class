@@ -85,7 +85,7 @@ class NLRWDense(nn.Module):
     def extra_repr(self):
         #Output the io size for visible
         return 'in_features={}, out_features={}'.format(
-            self.in_features, self.out_features is not None
+            self.input_features, self.output_features is not None
         )
 
 
