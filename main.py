@@ -12,34 +12,57 @@ import NLRWClass
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5, 1)
-        self.conv2 = nn.Conv2d(20, 50, 5, 1)
-        self.fc1 = nn.Linear(4*4*50, 500)
-        self.NL = NLRWClass.NLRWDense(500, 10, "RW")
+        self.conv2d1 = nn.Conv2d(in_channels = 1,  out_channels = 7,  kernel_size = 3, stride = 1, padding = 1)
+        self.conv2d2 = nn.Conv2d(in_channels = 7,  out_channels = 14, kernel_size = 3, stride = 1, padding = 1)
+        self.conv2d3 = nn.Conv2d(in_channels = 14, out_channels = 28, kernel_size = 3, stride = 1, padding = 1)
         
+        self.fc1 = nn.Linear(252, 64)
+
+        self.NL = NLRWClass.NLRWDense(64, 10, "NL")
+        
+
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.max_pool2d(x, 2, 2)
-        x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, 2, 2)
-        x = x.view(-1, 4*4*50)
-        x = F.relu(self.fc1(x))
-        x = self.NL(x)
-        return F.log_softmax(x, dim=1)
-    
+        Block1 = self.conv2d1(x)
+        Block1 = F.leaky_relu(Block1, 0.1)
+        Block1 = F.max_pool2d(Block1, 2)
+
+        Block2 = self.conv2d2(Block1)
+        Block2 = F.leaky_relu(Block2, 0.1)
+        Block2 = F.max_pool2d(Block2, 2)
+
+        Block3 = self.conv2d3(Block2)
+        Block3 = F.leaky_relu(Block3, 0.1)
+        Block3 = F.max_pool2d(Block3, 2)
+        #Finals = Block3.view(1)        # To get the vector length
+
+        Finals = Block3.view(-1, 252)
+        Finals = self.fc1(Finals)
+        Finals = F.leaky_relu(Finals, 0.1)
+
+        Finals = self.NL(Finals)
+        return Finals
+
+
+
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
+        print(len(data[0]), len(data[0][0]), len(data[0][0][0]))
         optimizer.zero_grad()
         output = model(data)
+        
+        #It is necessary to change loss function for learning ===============================================================
         loss = F.nll_loss(output, target)
+        #It is necessary to change loss function for learning ===============================================================
+
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+
 
 def test(args, model, device, test_loader):
     model.eval()
@@ -58,6 +81,7 @@ def test(args, model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+
 
 def main():
     # Training settings
@@ -78,12 +102,14 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
-
+    
+    if use_cuda:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        torch.multiprocessing.set_start_method("spawn")
     torch.manual_seed(args.seed)
 
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -105,6 +131,7 @@ def main():
 
 
     model = Net().to(device)
+    print(model)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
     for epoch in range(1, args.epochs + 1):
