@@ -47,21 +47,25 @@ class Net(nn.Module):
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
-        print(len(data[0]), len(data[0][0]), len(data[0][0][0]))
+        YData = [[0 for n in range(10)] for n in range(len(target))]
+        for i in range(0, len(target)):
+            YData[i][target[i]] = 1
+        #print(len(YData))
+        data, YData = data.to(device), torch.Tensor(YData).to(device)
+        #print(len(data[0]), len(data[0][0]), len(data[0][0][0]))
         optimizer.zero_grad()
         output = model(data)
-        
         #It is necessary to change loss function for learning ===============================================================
-        loss = F.nll_loss(output, target)
+        loss = F.binary_cross_entropy(output, YData)
         #It is necessary to change loss function for learning ===============================================================
 
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
+            print("                                                            ", end = "\r")
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+                100. * batch_idx / len(train_loader), loss.item()), end = "\r")
 
 
 def test(args, model, device, test_loader):
@@ -70,9 +74,12 @@ def test(args, model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            YData = [[0 for n in range(10)] for n in range(len(target))]
+            for i in range(0, len(target)):
+                YData[i][target[i]] = 1
+            data, YData, target = data.to(device), torch.Tensor(YData).to(device), target.to(device)
             output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
+            test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item() # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -90,7 +97,7 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=10, metavar='N',
+    parser.add_argument('--epochs', type=int, default=150, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='learning rate (default: 0.01)')
@@ -136,6 +143,7 @@ def main():
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
+        #test(args, model, device, train_loader)
         test(args, model, device, test_loader)
 
     if (args.save_model):

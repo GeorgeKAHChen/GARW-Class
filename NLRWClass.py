@@ -4,7 +4,7 @@ import torch.nn as nn
 from libpy import Init             #Import my own functions for test
 
 class NLRWDense(nn.Module):
-    def __init__(self, input_features, output_features, work_style = "NL", UL_distant = 0.1, UU_distant = 1, device = "cuda"):
+    def __init__(self, input_features, output_features, work_style = "NL", UL_distant = 0.1, UU_distant = 5, device = "cuda"):
         super(NLRWDense, self).__init__()
         self.input_features = input_features
         self.output_features = output_features
