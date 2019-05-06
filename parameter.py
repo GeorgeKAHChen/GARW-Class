@@ -38,12 +38,32 @@ lr = 0.2
 # Attribute group
 nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16, 6, 6, 15, 5, 5, 5, 16, 16, 16, 16, 5]
 
+# Dataset location
+dataset_location = "./Input/CUB_200_2011"
 
+# SGD momentum
 momentum = 0.5
+
+# Random value seed
 seed = 1
+
+# How many batches to wait before logging training status
 log_interval = 10
+
+# Model saving flag
 save_model = False
+
+# Running the processing without print information
 flag_auto = False
 
+# Size of map in feature map
 map_size = 14*14
+
+# Size of final feature 
 featurea_length = 512
+
+
+
+
+
+

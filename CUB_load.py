@@ -98,13 +98,12 @@ def load_data(data_folder, target_size=(224, 224), bounding_box=True):
     label_rf.close()
 
 
-    # Read attributes
+    # Read attributes and to(device)
     A_all = np.genfromtxt(processed_attribute_file, dtype=int, delimiter=' ')
     A_train = A_all[train_idx]
     A_test = A_all[test_idx]
-
-    X_train = X_train
-    X_test = X_test
+    X_train = torch.Tensor(X_train).to(device)
+    X_test = torch.Tensor(X_test).to(device)
     y_train = np.array(y_train)
     y_test = np.array(y_test)
     
