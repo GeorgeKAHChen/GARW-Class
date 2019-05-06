@@ -422,7 +422,8 @@ def GetSufixFile(dir_name, sufixSet):
 	im_paths = []
 	im_name = []
 	for parent, dirs, files in os.walk(dir_name):
-		for file in files:
+		for i in range(0, len(files)):
+			file = files[i]
 			name,sufix = file.split('.')
 			im_path = ""
 			if sufix in sufixSet:

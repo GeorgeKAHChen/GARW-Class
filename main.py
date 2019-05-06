@@ -1,3 +1,17 @@
+#=============================================================================
+#
+#       Group Attribute Random Walk Program
+#       Main.py
+#
+#       Copyright by KazukiAmakawa, all right reserved
+#
+#=======================================================
+#
+#       Intro
+#       This is the Main file we build in MNIST recoginization.
+#
+#=============================================================================
+
 from __future__ import print_function
 import argparse
 import torch
@@ -9,6 +23,7 @@ from torchvision import datasets, transforms
 from libpy import Init
 import NLRWClass
 
+flag_auto = False
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -18,7 +33,9 @@ class Net(nn.Module):
         
         self.fc1 = nn.Linear(252, 64)
 
-        self.NL = NLRWClass.NLRWDense(64, 10, "NL")
+        #self.Classification = NLRWClass.NLRWDense(input_features = 64, output_features = 10, work_style = "NL", UL_distant = 1, UU_distant = 1, device = "cuda")
+        self.Classification = NLRWClass.NLRWDense(input_features = 64, output_features = 10, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = "cuda")
+        #self.Classification = nn.Linear(64, 10, bias = False)
         
 
     def forward(self, x):
@@ -39,7 +56,8 @@ class Net(nn.Module):
         Finals = self.fc1(Finals)
         Finals = F.leaky_relu(Finals, 0.1)
 
-        Finals = self.NL(Finals)
+        Finals = self.Classification(Finals)
+        #Finals = F.softmax(Finals)
         return Finals
 
 
@@ -50,23 +68,18 @@ def train(args, model, device, train_loader, optimizer, epoch):
         YData = [[0 for n in range(10)] for n in range(len(target))]
         for i in range(0, len(target)):
             YData[i][target[i]] = 1
-        #print(len(YData))
         data, YData = data.to(device), torch.Tensor(YData).to(device)
-        #print(len(data[0]), len(data[0][0]), len(data[0][0][0]))
         optimizer.zero_grad()
         output = model(data)
-        #It is necessary to change loss function for learning ===============================================================
         loss = F.binary_cross_entropy(output, YData)
-        #It is necessary to change loss function for learning ===============================================================
 
         loss.backward()
         optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            print("                                                            ", end = "\r")
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()), end = "\r")
-
+        if not flag_auto:
+            if batch_idx % args.log_interval == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
+    if not flag_auto:
+        print()
 
 def test(args, model, device, test_loader):
     model.eval()
@@ -83,24 +96,22 @@ def test(args, model, device, test_loader):
             pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
-    test_loss /= len(test_loader.dataset)
+    test_loss /= len(test_loader.dataset) * 10
 
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
 
 
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
+    parser.add_argument('--batch-size', type=int, default=32, metavar='N',
+                        help='input batch size for training (default: 32)')
+    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N',
+                        help='input batch size for testing (default: 1)')
     parser.add_argument('--epochs', type=int, default=150, metavar='N',
-                        help='number of epochs to train (default: 10)')
-    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                        help='learning rate (default: 0.01)')
+                        help='number of epochs to train (default: 150)')
+    parser.add_argument('--lr', type=float, default=0.2, metavar='LR',
+                        help='learning rate (default: 0.02), Warning, if you using random walk with parameter, it is necessary to change this loss rate with parameter')
     parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                         help='SGD momentum (default: 0.5)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -142,9 +153,18 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
     for epoch in range(1, args.epochs + 1):
+        print("Looping epoch = ", epoch)
+        start = time.time()
         train(args, model, device, train_loader, optimizer, epoch)
+        end = time.time()
+        t1 = end - start
+
         #test(args, model, device, train_loader)
+        start = time.time()
         test(args, model, device, test_loader)
+        end = time.time()
+        t2 = end - start
+        print("Time Usage: Training time", t1, "Testing time", t2)
 
     if (args.save_model):
         torch.save(model.state_dict(),"mnist_cnn.pt")
