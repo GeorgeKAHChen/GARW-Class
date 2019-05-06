@@ -38,6 +38,9 @@ lr = 0.2
 # Attribute group
 nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16, 6, 6, 15, 5, 5, 5, 16, 16, 16, 16, 5]
 
+# Attribute group
+total_class = 200
+
 # Dataset location
 dataset_location = "./Input/CUB_200_2011"
 
@@ -61,6 +64,7 @@ map_size = 14*14
 
 # Size of final feature 
 featurea_length = 512
+
 
 
 

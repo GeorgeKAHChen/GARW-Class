@@ -13,14 +13,13 @@
 #
 #=============================================================================
 from __future__ import print_function
-import argparse
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torchvision.models import *
+import numpy as np
 
 from libpy import Init
 import NLRWClass
@@ -44,17 +43,16 @@ flag_auto = parameter.flag_auto
 map_size = parameter.map_size
 featurea_length = parameter.featurea_length
 dataset_location = parameter.dataset_location
+nb_attributes = parameter.nb_attributes
+total_class = parameter.total_class
 
-#Initial the system and get pretrained_model
-pretrain_model = eval(model_flag)(pretrained=True)
-
-attr_class = sum(nb_attributes)
-total_class = len(nb_attributes)
+attr_class = sum(nb_attributes) + len(nb_attributes)
+attr_total = len(nb_attributes)
 
 if device == "cuda":
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     torch.multiprocessing.set_start_method("spawn")
-torch.manual_seed(args.seed)
+torch.manual_seed(seed)
 
 
 
@@ -131,37 +129,47 @@ def test(args, model, device, test_loader):
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
 
 
+
 def sharedCNN(data):
-    return 
+    pretrain_model = eval(model_flag)(pretrained=True)
+
 
 
 
 def tar2pdf(inputs, maxx):
     multi_layer = False
-    if len(np.shape(inputs)) == 3:
+    if len(np.shape(inputs)) == 2:
         multi_layer = True
-    elif len(np.shape(inputs)) == 2:
+    elif len(np.shape(inputs)) == 1:
         multi_layer = False
     else:
         ValueError("Input data layer error, the target and attribute data must have 2 or 3 deep dimension")
 
-    
+    outputs = []
     if multi_layer:
-        outputs = []
+        
         for i in range(0, len(inputs)):
-            tmp = 0
             step_output = np.array([0 for n in range(attr_class)])
+            
+            tmp = 0
             for j in range(0, len(inputs[i])):
                 step_output[tmp + inputs[i][j]] = 1
-                tmp += nb_attributes[i]
+                tmp += nb_attributes[j]
+            step_output = step_output / attr_total
+            
+            step_output = torch.Tensor(step_output).to(device)
             outputs.append(step_output)
-        return outputs
 
     else:
-        outputs = [[0 for n in range(total_class)] for n in range(len(inputs))]
         for i in range(0, len(inputs)):
-            outputs[i][inputs[i]] = 1
-        return outputs
+            step_output = [0 for n in range(total_class)]
+            
+            step_output[inputs[i]] = 1
+            
+            step_output = torch.Tensor(step_output).to(device)
+            outputs.append(step_output)
+    
+    return outputs
 
 
         
@@ -169,19 +177,29 @@ def tar2pdf(inputs, maxx):
 def main():
     #Input Images, attribute and final target for input data
     train_set, test_set = CUB_load.load_data("./CUB_200_2011")
-
+    if not flag_auto:
+        print("Input import succeed")
     #Data partial and rebuild
     train_image, train_target, train_attr = train_set
     test_image, test_target, test_attr = test_set
 
-    train_map, train_feature = sharedCNN(train_image)
-    test_map, test_feature = sharedCNN(test_image)
-
     train_target_pdf = tar2pdf(train_target, total_class)
     train_attr_pdf = tar2pdf(train_attr, attr_class)
+
+    if not flag_auto:
+        print("Training data import succeed")
+    
     test_target_pdf = tar2pdf(test_target, total_class)
     test_attr_pdf = tar2pdf(test_attr, attr_class)
+    
+    if not flag_auto:
+        print("Testing data import succeed")
 
+    train_map, train_feature = sharedCNN(train_image)
+    test_map, test_feature = sharedCNN(test_image)    
+    
+    if not flag_auto:
+        print("Pretrained feature and feature map build succeed")
     """
     model = Net().to(device)
     print(model)
