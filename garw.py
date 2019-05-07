@@ -132,7 +132,10 @@ def test(args, model, device, test_loader):
 
 def sharedCNN(data):
     pretrain_model = eval(model_flag)(pretrained=True)
-
+    pretrain_model.to(device)
+    outputs = pretrain_model(data)
+    print(data[0])
+    print(outputs[0])
 
 
 
@@ -157,7 +160,7 @@ def tar2pdf(inputs, maxx):
                 tmp += nb_attributes[j]
             step_output = step_output / attr_total
             
-            step_output = torch.Tensor(step_output).to(device)
+            step_output = step_output
             outputs.append(step_output)
 
     else:
@@ -166,17 +169,17 @@ def tar2pdf(inputs, maxx):
             
             step_output[inputs[i]] = 1
             
-            step_output = torch.Tensor(step_output).to(device)
+            step_output = step_output
             outputs.append(step_output)
     
-    return outputs
+    return torch.Tensor(outputs).to(device)
 
 
         
 #Main=================================================================
 def main():
     #Input Images, attribute and final target for input data
-    train_set, test_set = CUB_load.load_data("./CUB_200_2011")
+    train_set, test_set = CUB_load.load_data(dataset_location)
     if not flag_auto:
         print("Input import succeed")
     #Data partial and rebuild
@@ -195,31 +198,34 @@ def main():
     if not flag_auto:
         print("Testing data import succeed")
 
+    train_image = torch.Tensor(train_image).to(device)
+    test_map = torch.Tensor(test_image).to(device)
     train_map, train_feature = sharedCNN(train_image)
     test_map, test_feature = sharedCNN(test_image)    
     
     if not flag_auto:
         print("Pretrained feature and feature map build succeed")
+    
     """
     model = Net().to(device)
     print(model)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(1, epochs + 1):
         print("Looping epoch = ", epoch)
         start = time.time()
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(model, device, train_loader, optimizer, epoch)
         end = time.time()
         t1 = end - start
 
-        #test(args, model, device, train_loader)
+        #test(model, device, train_loader)
         start = time.time()
-        test(args, model, device, test_loader)
+        test(model, device, test_loader)
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)
 
-    if (args.save_model):
+    if (save_model):
         torch.save(model.state_dict(),"mnist_cnn.pt")
     """
 

@@ -22,9 +22,34 @@ from PIL import Image
 import scipy.io as sio
 import os
 import time
+
 import parameter
 
-device = parameter.device
+flag_auto = parameter.flag_auto
+
+
+def RGBList2Table(InputImage):
+    Size = np.shape(InputImage)
+    if len(Size) != 3:
+        return [InputImage, InputImage. InputImage]
+    if Size[2] != 3 and Size[0] == 3:
+        return InputImage
+
+    RTable = []
+    GTable = []
+    BTable = []
+    for i in range(0, len(InputImage)):
+        RLine = []
+        GLine = []
+        BLine = []
+        for j in range(0, len(InputImage[i])):
+            RLine.append(InputImage[i][j][0])
+            GLine.append(InputImage[i][j][1])
+            BLine.append(InputImage[i][j][2])
+        RTable.append(RLine)
+        GTable.append(GLine)
+        BTable.append(BLine)
+    return [RTable, GTable, BTable]
 
 
 def load_data(data_folder, target_size=(224, 224), bounding_box=True):
@@ -76,14 +101,19 @@ def load_data(data_folder, target_size=(224, 224), bounding_box=True):
         if(bounding_box):
             img = img.crop(bb_list[int(strs[0])-1])
         img = img.resize(target_size)
-        x = torch.Tensor(np.array(img)).to(device)
+        pixels = list(img.getdata())
+        width, height = img.size
+        x = [pixels[i * width:(i + 1) * width] for i in range(height)]
+        x = RGBList2Table(x)
         if(train_test_list[int(strs[0])-1]=='1'):
             X_train.append(x)
         else:
             X_test.append(x)
         i += 1
-        if(i%1000==0):
-            print(i,' images load.')
+        if(i % 200 == 0) and not flag_auto:
+            print(i,' images load.', end = "\r")
+    if not flag_auto:
+        print()
     images_rf.close()
 
 

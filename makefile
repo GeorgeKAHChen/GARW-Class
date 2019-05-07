@@ -1,5 +1,5 @@
 main:
-	KERAS_BACKEND=tensorflow python NLRWMain.py RW
+	python garw.py
 
 LN:
 	KERAS_BACKEND=tensorflow python NLRWMain.py LN

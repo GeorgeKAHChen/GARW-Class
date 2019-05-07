@@ -14,10 +14,10 @@
 #=============================================================================
 
 #Shared CNN, pretrained model
-#model_flag = "resnet50"
+model_flag = "resnet50"
 #model_flag = "resnet18"
 #model_flag = "alexnet"
-model_flag = "vgg16"
+#model_flag = "vgg16"
 #model_flag = "vgg19"
 
 # Using "cude" for gpu learning(with NVIDIA(R) device), or "cpu" with CPU learning
@@ -42,7 +42,7 @@ nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16
 total_class = 200
 
 # Dataset location
-dataset_location = "./Input/CUB_200_2011"
+dataset_location = "CUB_test"
 
 # SGD momentum
 momentum = 0.5
