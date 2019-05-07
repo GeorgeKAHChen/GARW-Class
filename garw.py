@@ -20,6 +20,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torchvision.models import *
 import numpy as np
+import time
+import os
 
 from libpy import Init
 import NLRWClass
@@ -51,7 +53,7 @@ attr_total = len(nb_attributes)
 
 if device == "cuda":
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    torch.multiprocessing.set_start_method("spawn")
+    #torch.multiprocessing.set_start_method("spawn")
 torch.manual_seed(seed)
 
 
@@ -59,10 +61,11 @@ torch.manual_seed(seed)
 #Definition Classification============================================
 class attribute_net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
-        self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
+        super(attribute_net, self).__init__()
+        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.05, UU_distant = 0.05, device = device)
         #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
         #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
+        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
         self.attr2final = nn.Linear(attr_class, total_class, bias = False)
         self.map2final = nn.Linear(featurea_length, total_class, bias = False)
 
@@ -72,10 +75,12 @@ class attribute_net(nn.Module):
         attr_dis = torch.Tensor().to(device)
         for i in range(0, len(attr_map)):
             attr_pdf = self.map2attr(attr_map[i])
-            attr_sum = torch.sum(attr_pdf.t(), dim = 1).t()
-            attr_dis = torch.cat(attr_dis, attr_sum)
+            attr_pdf = F.softmax(attr_pdf)
+            attr_sum = torch.sum(attr_pdf.t(), dim = 1)
+            attr_dis = torch.cat([attr_dis, attr_sum])
 
         attr_dis = attr_dis.reshape(-1, attr_class)
+        attr_dis = attr_dis / attr_class
 
         attr_final = self.attr2final(attr_dis)
         attr_final = F.softmax(attr_final)
@@ -85,28 +90,31 @@ class attribute_net(nn.Module):
         
         final = (attr_final + map_final) / 2
         
-        return (attr_dis, final)
+        return final, attr_dis
 
 
 
 
 
 #Main Training and Testing ===========================================
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(model, trains, optimizer, epoch):
     model.train()
-    for batch_idx, (data, target, attr) in enumerate(train_loader):
-        data, target, attr = data.to(device), torch.Tensor(YData).to(device)
-        optimizer.zero_grad()
-        attr_dis, final = model(data)
-        loss = F.binary_cross_entropy(output, YData)
-
-        loss.backward()
-        optimizer.step()
-        if not flag_auto:
-            if batch_idx % log_interval == 0:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
+    optimizer.zero_grad()
+    data, (train_target_pdf, train_attr_pdf) = trains
+    final, attr_dis = model(data)
+    loss1 = F.binary_cross_entropy(final[i], train_target_pdf[i])
+    loss2 = F.binary_cross_entropy(attr_dis[i], train_attr_pdf[i])
+    loss = loss1 + loss2
+    loss.backward()
+    optimizer.step()
+    print(loss1, loss2, loss)
+    """
+    if not flag_auto:
+        if batch_idx % log_interval == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
     if not flag_auto:
         print()
+    """
 
 
 def test(args, model, device, test_loader):
@@ -131,11 +139,30 @@ def test(args, model, device, test_loader):
 
 
 def sharedCNN(data):
-    pretrain_model = eval(model_flag)(pretrained=True)
-    pretrain_model.to(device)
-    outputs = pretrain_model(data)
-    print(data[0])
-    print(outputs[0])
+    #I still need to write a brach calculation
+    shared_model = eval(model_flag)(pretrained=True)
+    
+    #Build map part of sharedCNN
+    map_model = nn.Sequential(*list(shared_model.children())[:-1])
+    map_model = nn.DataParallel(map_model,device_ids=[0,1])
+    map_model.to(device)
+
+    #Build feature part of sharedCNN
+    feature_model = nn.Sequential(*list(shared_model.children())[-1])
+    feature_model = nn.DataParallel(feature_model,device_ids=[0,1])
+    feature_model.to(device)
+
+    #Get map and feature from network
+    feature_map = map_model(data)
+    feature = feature_model(feature_map.reshape(-1, 512 * 7 * 7))
+
+    #Resize for output
+    feature_map = feature_map.reshape(-1, 512, 7 * 7)
+    feature = feature.reshape(-1, featurea_length)
+
+    if not flag_auto:
+        print(feature_map.size(), feature.size())
+    return feature_map, feature
 
 
 
@@ -181,53 +208,61 @@ def main():
     #Input Images, attribute and final target for input data
     train_set, test_set = CUB_load.load_data(dataset_location)
     if not flag_auto:
-        print("Input import succeed")
+        print("Data import succeed")
+    
     #Data partial and rebuild
     train_image, train_target, train_attr = train_set
     test_image, test_target, test_attr = test_set
+    
+    train_target = train_target[0:225]
+    train_attr = train_attr[0:225]
+    test_target = test_target[0:175]
+    test_attr = test_attr[0:175]
 
+    #Target to pdf for binary cross entropy
     train_target_pdf = tar2pdf(train_target, total_class)
     train_attr_pdf = tar2pdf(train_attr, attr_class)
-
-    if not flag_auto:
-        print("Training data import succeed")
     
     test_target_pdf = tar2pdf(test_target, total_class)
     test_attr_pdf = tar2pdf(test_attr, attr_class)
-    
-    if not flag_auto:
-        print("Testing data import succeed")
 
+    #Image to map and feature
     train_image = torch.Tensor(train_image).to(device)
-    test_map = torch.Tensor(test_image).to(device)
+    test_image = torch.Tensor(test_image).to(device)
     train_map, train_feature = sharedCNN(train_image)
     test_map, test_feature = sharedCNN(test_image)    
     
+    trains = ((train_map, train_feature), (train_target_pdf, train_attr_pdf))
+    tests = ((test_map, test_feature), (test_target_pdf, test_attr_pdf))
+
     if not flag_auto:
         print("Pretrained feature and feature map build succeed")
     
-    """
-    model = Net().to(device)
-    print(model)
+    model = attribute_net().to(device)
+    model = nn.DataParallel(model,device_ids=[0,1])
+    if flag_auto:
+        print(model)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
+
 
     for epoch in range(1, epochs + 1):
         print("Looping epoch = ", epoch)
         start = time.time()
-        train(model, device, train_loader, optimizer, epoch)
+        train(model, trains, optimizer, epoch)
         end = time.time()
         t1 = end - start
 
         #test(model, device, train_loader)
         start = time.time()
-        test(model, device, test_loader)
+        #test(model, device, test_loader)
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)
 
     if (save_model):
-        torch.save(model.state_dict(),"mnist_cnn.pt")
-    """
+        os.system("mkdir Output")
+        torch.save(model.state_dict(),"/Output/Model.pt")
+    
 
 if __name__ == '__main__':
     main()

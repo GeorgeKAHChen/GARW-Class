@@ -9,22 +9,22 @@
 #
 #       Intro
 #       This file include all parameters in the program. Please change them
-#		in this file.
+#       in this file.
 #
 #=============================================================================
 
 #Shared CNN, pretrained model
-model_flag = "resnet50"
+#model_flag = "resnet50"
 #model_flag = "resnet18"
 #model_flag = "alexnet"
-#model_flag = "vgg16"
+model_flag = "vgg16"
 #model_flag = "vgg19"
 
 # Using "cude" for gpu learning(with NVIDIA(R) device), or "cpu" with CPU learning
 device = "cuda"
 
 # Training batch size
-batch_size = 32		
+batch_size = 32
 
 # Test batch size
 test_batch_size = 1
@@ -60,10 +60,10 @@ save_model = False
 flag_auto = False
 
 # Size of map in feature map
-map_size = 14*14
+map_size = 7 * 7
 
-# Size of final feature 
-featurea_length = 512
+# Size of final feature
+featurea_length = 1000 
 
 
 
