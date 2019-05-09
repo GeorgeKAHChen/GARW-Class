@@ -31,7 +31,11 @@ flag_auto = parameter.flag_auto
 def RGBList2Table(InputImage):
     Size = np.shape(InputImage)
     if len(Size) != 3:
-        return [InputImage, InputImage. InputImage]
+        img = []
+        img.append(InputImage)
+        img.append(InputImage)
+        img.append(InputImage)
+        return img
     if Size[2] != 3 and Size[0] == 3:
         return InputImage
 

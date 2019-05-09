@@ -65,20 +65,22 @@ torch.manual_seed(seed)
 class attribute_net(nn.Module):
     def __init__(self):
         super(attribute_net, self).__init__()
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.05, UU_distant = 0.05, device = device)
+        self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.05, UU_distant = 0.05, device = device)
         #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
         #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
+        #self.map2attr = nn.Linear(map_size, attr_class, bias = False)
         self.attr2final = nn.Linear(attr_class, total_class, bias = False)
         self.map2final = nn.Linear(featurea_length, total_class, bias = False)
 
     def forward(self, x):
         #Input [[None, [512, 196]], [None, 512]]
         attr_map, features = x
+        attr_map = torch.Tensor(attr_map).to(device)
+        features = torch.Tensor(features).to(device)
         attr_dis = torch.Tensor().to(device)
         for i in range(0, len(attr_map)):
             attr_pdf = self.map2attr(attr_map[i])
-            attr_pdf = F.softmax(attr_pdf)
+            #attr_pdf = F.softmax(attr_pdf)
             attr_sum = torch.sum(attr_pdf.t(), dim = 1)
             attr_dis = torch.cat([attr_dis, attr_sum])
 
@@ -97,41 +99,68 @@ class attribute_net(nn.Module):
 
 
 
+class map_fea_tar_attr(torch.utils.data.Dataset):
+    def __init__(self, x, y):
+        self.x_data = x
+        self.y_data = y
+        self.length = len(x)
+
+    def __getitem__(self, index):
+        return self.x_data[index], self.y_data[index]
+
+    def __len__(self):
+        return self.length
+        
+
+
 
 
 #Main Training and Testing ===========================================
-def train(model, trains, optimizer, epoch):
+def train(model, train_loader, optimizer, epoch):
     model.train()
-    optimizer.zero_grad()
-    data, (train_target_pdf, train_attr_pdf) = trains
-    final, attr_dis = model(data)
-    loss1 = F.binary_cross_entropy(final, train_target_pdf)
-    loss2 = F.binary_cross_entropy(attr_dis, train_attr_pdf)
-    loss = loss1 + loss2
-    loss.backward()
-    optimizer.step()
-    print(loss1, loss2, loss)
-    """
-    if not flag_auto:
-        if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
+
+    for batch_idx, (data, outputs) in enumerate(train_loader):
+        target, attr = outputs
+
+        #data = torch.Tensor(data).to(device)
+        target = torch.Tensor(target).to(device)
+        attr = torch.Tensor(attr).to(device)
+
+        optimizer.zero_grad()
+        
+        final, attr_dis = model(data)
+        loss1 = F.binary_cross_entropy(final, target)
+        loss2 = F.binary_cross_entropy(attr_dis, attr)
+        loss = loss1 + loss2
+        loss.backward()
+
+        optimizer.step()
+        if not flag_auto:
+            if batch_idx % 20 == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx, len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
+    
     if not flag_auto:
         print()
-    """
 
 
-def test(args, model, device, test_loader):
+
+def test(model, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for data, target in test_loader:
-            YData = [[0 for n in range(10)] for n in range(len(target))]
-            for i in range(0, len(target)):
-                YData[i][target[i]] = 1
-            data, YData, target = data.to(device), torch.Tensor(YData).to(device), target.to(device)
-            output = model(data)
-            test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item() # sum up batch loss
+        for data, outputs in test_loader:
+            target, attr = outputs
+            data = torch.Tensor(data).to(device)
+            target = torch.Tensor(target).to(device)
+            attr = torch.Tensor(attr).to(device)
+
+            final, attr_dis = model(data)
+            
+            loss1 = F.binary_cross_entropy(final, target)
+            loss2 = F.binary_cross_entropy(attr_dis, attr)
+            loss = loss1 + loss2
+
             pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -165,17 +194,14 @@ def build_shared_CNN():
 
 
 def sharedCNN(data, map_model, feature_model):
-    input("6")
     #Get map and feature from network
     feature_map = map_model(data)
     feature = feature_model(feature_map.reshape(-1, 512 * 7 * 7))
-    input("7")  
     #Resize for output
     feature_map = feature_map.reshape(-1, 512, 7 * 7)
     feature = feature.reshape(-1, featurea_length)
     if not flag_auto:
         print(feature_map.size(), feature.size())
-    input("10")
     torch.cuda.empty_cache()
     return feature_map, feature
 
@@ -231,127 +257,127 @@ def load_data(inputs, batch_size):
             start = end
 
 
+def comb_tar_attr(tar, attr):
+    outputs = []
+    for i in range(0, len(tar)):
+        outputs.append([torch.Tensor(tar[i]).to(device), torch.Tensor(attr[i]).to(device)])
+    return outputs
+
+
 #Main=================================================================
 def main():
-    #Input Data from data set ==========================
+    # Input Data from data set ==========================
     train_set, test_set = CUB_load.load_data(dataset_location)
     if not flag_auto:
         print("Data import succeed")
     
-    #Data partial and rebuild
+    # Data partial and rebuild
     train_image, train_target, train_attr = train_set
     test_image, test_target, test_attr = test_set
     
 
-
-    #Treatment target and attr to distribution==========
-    """
-    train_target = train_target[0:225]
-    train_attr = train_attr[0:225]
-    test_target = test_target[0:175]
-    test_attr = test_attr[0:175]
-    """
-    #Target to pdf for binary cross entropy
+    # Treatment target and attr to distribution==========
+    # Target, attr to pdf for binary cross entropy
     train_target_pdf = tar2pdf(train_target, total_class)
     train_attr_pdf = tar2pdf(train_attr, attr_class)
     
     test_target_pdf = tar2pdf(test_target, total_class)
     test_attr_pdf = tar2pdf(test_attr, attr_class)
     
+    # Combine as y data
+    train_y = comb_tar_attr(train_target_pdf, train_attr_pdf)
+    test_y = comb_tar_attr(test_target_pdf, test_attr_pdf)
+    
+
+    # Build to dataset, treat image to map and feature=====
+    # Import Images
     train_image_loader = load_data(train_image, batch_size=share_batch_size)
     test_image_loader = load_data(test_image, batch_size=share_batch_size)
     
-
-
-
-    #Build to dataset, treat image to map and feature=====
-    #Initial Shared CNN
+    # Initial Shared CNN
     map_model, feature_model = build_shared_CNN()
 
     #Initial Initial Parameters
-    train_data = []     #For all train data
-    test_data = []      #For all test data
+    train_x = []     #For all train data
+    test_x = []      #For all test data
     input_images = torch.Tensor().to(device)
     
-
+    # Main Processing
     with torch.no_grad():
         total = 0
-        #Get Feature for Train
+        # Get Feature for Train
         for images in train_image_loader:
-            #Read images to cuda
+            # Read images to cuda
             input_images = torch.Tensor(images).to(device)
             
-            #Get Feature
+            # Get Feature
             maps, features = sharedCNN(input_images, map_model, feature_model)
-
-            #Build to data set
+            print(maps[0].size(), features[0].size())
+            # Build to data set
             for j in range(0, len(maps)):
-                train_data.append([
-                                    [maps[j], 
-                                     features[j]
-                                    ], 
-                                    [train_target_pdf[total * share_batch_size + j],
-                                     train_attr_pdf[total * share_batch_size + j]
-                                    ]
-                                  ])
-            #After treat
+                train_x.append([maps[j], features[j]])
+            # After treat
             total += 1
 
 
         total = 0
-        #Get Feature for Test
+        # Get Feature for Test
         for images in test_image_loader:
-            #Read images to cuda
+            # Read images to cuda
             input_images = torch.Tensor(images).to(device)
 
-            #Get Feature
+            # Get Feature
             maps, features = sharedCNN(input_images, map_model, feature_model)
 
-            #Build to data set
+            # Build to data set
             for j in range(0, len(maps)):
-                test_data.append([
-                                    [maps[j], 
-                                     features[j]
-                                    ], 
-                                    [test_target_pdf[total * share_batch_size + j],
-                                     test_attr_pdf[total * share_batch_size + j]
-                                    ]
-                                  ])
-            #After treat
+                test_x.append([maps[j], features[j]])
+            # After treat
             total += 1
-
 
     if not flag_auto:
         print("Pretrained feature and feature map build succeed")
+    
+
+    # Get confident length y data with x size==============
+    train_y = train_y[:len(train_x)]
+    test_y = test_y[:len(test_x)]
+
+    train_data = map_fea_tar_attr(train_x, train_y)
+    test_data = map_fea_tar_attr(train_x, train_y)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size = batch_size, shuffle = True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size = test_batch_size, shuffle = True)
 
     if not flag_auto:
-        print("Training data structure: Total: ", len(train_data), "Map Length:", len(train_data[0][0][0]), "Map Size:", len(train_data[0][0][0][0]), "Feature Size:", len(train_data[0][0][1]), "Class Size:", len(train_data[0][1][0]), "Attribute Size:", len(train_data[0][1][1]))
-        print("Testing data structure: Total: ", len(test_data), "Map Length:", len(test_data[0][0][0]), "Map Size:", len(test_data[0][0][0][0]), "Feature Size:", len(test_data[0][0][1]), "Class Size:", len(test_data[0][1][0]), "Attribute Size:", len(test_data[0][1][1]))
+        print("Data treatment finished")    
+        print("Input data structure: Train data size:", len(train_x), "Test data size", len(test_x))
+        print("Input: Featur Map Size:", train_x[0][0].size(), "Feature Size:", train_x[0][1].size())
+        print("Output: Attribute Size:", len(train_y[0][0]), "Class Size:", len(train_y[0][1]))
+        print("Train batch size:", batch_size, "Test batch size:", test_batch_size)
 
+    for x, y in train_loader:
+        print(len(y), len(y[0]), y[0][0].size(), y[1][0].size())
+    # DATA INITIAL FINISH==================================
 
-    
-    
+    # Read Model ==========================================
     model = attribute_net().to(device)
-    model = nn.DataParallel(model,device_ids=[0,1])
+    model = nn.DataParallel(model, device_ids=[0,1])
     if flag_auto:
         print(model)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
 
-
     for epoch in range(1, epochs + 1):
         print("Looping epoch = ", epoch)
         start = time.time()
-        train(model, trains, optimizer, epoch)
+        train(model, train_loader, optimizer, epoch)
         end = time.time()
         t1 = end - start
 
-        #test(model, device, train_loader)
         start = time.time()
-        #test(model, device, test_loader)
+        #test(model, test_loader)
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)
-        time.sleep(2)
         
     if (save_model):
         os.system("mkdir Output")
