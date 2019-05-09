@@ -34,6 +34,7 @@ import parameter
 model_flag = parameter.model_flag
 device = parameter.device
 batch_size = parameter.batch_size
+share_batch_size = parameter.share_batch_size
 test_batch_size = parameter.test_batch_size
 epochs = parameter.epochs
 lr = parameter.lr           
@@ -55,6 +56,8 @@ if device == "cuda":
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     #torch.multiprocessing.set_start_method("spawn")
 torch.manual_seed(seed)
+
+
 
 
 
@@ -102,8 +105,8 @@ def train(model, trains, optimizer, epoch):
     optimizer.zero_grad()
     data, (train_target_pdf, train_attr_pdf) = trains
     final, attr_dis = model(data)
-    loss1 = F.binary_cross_entropy(final[i], train_target_pdf[i])
-    loss2 = F.binary_cross_entropy(attr_dis[i], train_attr_pdf[i])
+    loss1 = F.binary_cross_entropy(final, train_target_pdf)
+    loss2 = F.binary_cross_entropy(attr_dis, train_attr_pdf)
     loss = loss1 + loss2
     loss.backward()
     optimizer.step()
@@ -138,30 +141,42 @@ def test(args, model, device, test_loader):
 
 
 
-def sharedCNN(data):
+def build_shared_CNN():
     #I still need to write a brach calculation
     shared_model = eval(model_flag)(pretrained=True)
-    
+    shared_model = shared_model.to("cpu")
+
     #Build map part of sharedCNN
     map_model = nn.Sequential(*list(shared_model.children())[:-1])
     map_model = nn.DataParallel(map_model,device_ids=[0,1])
     map_model.to(device)
+    #map_model = map_model.to("cpu")
 
     #Build feature part of sharedCNN
     feature_model = nn.Sequential(*list(shared_model.children())[-1])
     feature_model = nn.DataParallel(feature_model,device_ids=[0,1])
     feature_model.to(device)
+    #feature_model = feature_model.to("cpu")
 
+    map_model.eval()
+    feature_model.eval()
+
+    return map_model, feature_model
+
+
+def sharedCNN(data, map_model, feature_model):
+    input("6")
     #Get map and feature from network
     feature_map = map_model(data)
     feature = feature_model(feature_map.reshape(-1, 512 * 7 * 7))
-
+    input("7")  
     #Resize for output
     feature_map = feature_map.reshape(-1, 512, 7 * 7)
     feature = feature.reshape(-1, featurea_length)
-
     if not flag_auto:
         print(feature_map.size(), feature.size())
+    input("10")
+    torch.cuda.empty_cache()
     return feature_map, feature
 
 
@@ -199,13 +214,26 @@ def tar2pdf(inputs, maxx):
             step_output = step_output
             outputs.append(step_output)
     
-    return torch.Tensor(outputs).to(device)
+    return outputs
 
 
-        
+def load_data(inputs, batch_size):
+    start = 0
+    end = 0
+    outputs = []
+    while 1:
+        if end + batch_size >= len(inputs):
+            outputs.append(inputs[start:])
+            return outputs
+        else:
+            end += batch_size
+            outputs.append(inputs[start: end])
+            start = end
+
+
 #Main=================================================================
 def main():
-    #Input Images, attribute and final target for input data
+    #Input Data from data set ==========================
     train_set, test_set = CUB_load.load_data(dataset_location)
     if not flag_auto:
         print("Data import succeed")
@@ -214,29 +242,94 @@ def main():
     train_image, train_target, train_attr = train_set
     test_image, test_target, test_attr = test_set
     
+
+
+    #Treatment target and attr to distribution==========
+    """
     train_target = train_target[0:225]
     train_attr = train_attr[0:225]
     test_target = test_target[0:175]
     test_attr = test_attr[0:175]
-
+    """
     #Target to pdf for binary cross entropy
     train_target_pdf = tar2pdf(train_target, total_class)
     train_attr_pdf = tar2pdf(train_attr, attr_class)
     
     test_target_pdf = tar2pdf(test_target, total_class)
     test_attr_pdf = tar2pdf(test_attr, attr_class)
-
-    #Image to map and feature
-    train_image = torch.Tensor(train_image).to(device)
-    test_image = torch.Tensor(test_image).to(device)
-    train_map, train_feature = sharedCNN(train_image)
-    test_map, test_feature = sharedCNN(test_image)    
     
-    trains = ((train_map, train_feature), (train_target_pdf, train_attr_pdf))
-    tests = ((test_map, test_feature), (test_target_pdf, test_attr_pdf))
+    train_image_loader = load_data(train_image, batch_size=share_batch_size)
+    test_image_loader = load_data(test_image, batch_size=share_batch_size)
+    
+
+
+
+    #Build to dataset, treat image to map and feature=====
+    #Initial Shared CNN
+    map_model, feature_model = build_shared_CNN()
+
+    #Initial Initial Parameters
+    train_data = []     #For all train data
+    test_data = []      #For all test data
+    input_images = torch.Tensor().to(device)
+    
+
+    with torch.no_grad():
+        total = 0
+        #Get Feature for Train
+        for images in train_image_loader:
+            #Read images to cuda
+            input_images = torch.Tensor(images).to(device)
+            
+            #Get Feature
+            maps, features = sharedCNN(input_images, map_model, feature_model)
+
+            #Build to data set
+            for j in range(0, len(maps)):
+                train_data.append([
+                                    [maps[j], 
+                                     features[j]
+                                    ], 
+                                    [train_target_pdf[total * share_batch_size + j],
+                                     train_attr_pdf[total * share_batch_size + j]
+                                    ]
+                                  ])
+            #After treat
+            total += 1
+
+
+        total = 0
+        #Get Feature for Test
+        for images in test_image_loader:
+            #Read images to cuda
+            input_images = torch.Tensor(images).to(device)
+
+            #Get Feature
+            maps, features = sharedCNN(input_images, map_model, feature_model)
+
+            #Build to data set
+            for j in range(0, len(maps)):
+                test_data.append([
+                                    [maps[j], 
+                                     features[j]
+                                    ], 
+                                    [test_target_pdf[total * share_batch_size + j],
+                                     test_attr_pdf[total * share_batch_size + j]
+                                    ]
+                                  ])
+            #After treat
+            total += 1
+
 
     if not flag_auto:
         print("Pretrained feature and feature map build succeed")
+
+    if not flag_auto:
+        print("Training data structure: Total: ", len(train_data), "Map Length:", len(train_data[0][0][0]), "Map Size:", len(train_data[0][0][0][0]), "Feature Size:", len(train_data[0][0][1]), "Class Size:", len(train_data[0][1][0]), "Attribute Size:", len(train_data[0][1][1]))
+        print("Testing data structure: Total: ", len(test_data), "Map Length:", len(test_data[0][0][0]), "Map Size:", len(test_data[0][0][0][0]), "Feature Size:", len(test_data[0][0][1]), "Class Size:", len(test_data[0][1][0]), "Attribute Size:", len(test_data[0][1][1]))
+
+
+    
     
     model = attribute_net().to(device)
     model = nn.DataParallel(model,device_ids=[0,1])
@@ -258,7 +351,8 @@ def main():
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)
-
+        time.sleep(2)
+        
     if (save_model):
         os.system("mkdir Output")
         torch.save(model.state_dict(),"/Output/Model.pt")

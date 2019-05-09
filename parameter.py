@@ -29,6 +29,9 @@ batch_size = 32
 # Test batch size
 test_batch_size = 1
 
+# share CNN calculation batch size
+share_batch_size = 32
+
 # Total looping size
 epochs = 150
 
