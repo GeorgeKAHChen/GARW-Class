@@ -65,10 +65,11 @@ torch.manual_seed(seed)
 class attribute_net(nn.Module):
     def __init__(self):
         super(attribute_net, self).__init__()
-        self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.05, UU_distant = 0.05, device = device)
+        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
+        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "NL", UL_distant = 1, UU_distant = 1, device = device)
         #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
         #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        #self.map2attr = nn.Linear(map_size, attr_class, bias = False)
+        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
         self.attr2final = nn.Linear(attr_class, total_class, bias = False)
         self.map2final = nn.Linear(featurea_length, total_class, bias = False)
 
@@ -80,7 +81,7 @@ class attribute_net(nn.Module):
         attr_dis = torch.Tensor().to(device)
         for i in range(0, len(attr_map)):
             attr_pdf = self.map2attr(attr_map[i])
-            #attr_pdf = F.softmax(attr_pdf)
+            attr_pdf = F.softmax(attr_pdf)
             attr_sum = torch.sum(attr_pdf.t(), dim = 1)
             attr_dis = torch.cat([attr_dis, attr_sum])
 
@@ -129,15 +130,25 @@ def train(model, train_loader, optimizer, epoch):
         optimizer.zero_grad()
         
         final, attr_dis = model(data)
+        #print(final)
+        #print(attr_dis)
+        #print(target)
+        #print(attr)
+        #input("1")
         loss1 = F.binary_cross_entropy(final, target)
+        #print(loss1)
+        #Init.ArrOutput(attr_dis)
+        #time.sleep(1)
+        #Init.ArrOutput(attr)
+        #input("2")
         loss2 = F.binary_cross_entropy(attr_dis, attr)
         loss = loss1 + loss2
         loss.backward()
 
         optimizer.step()
         if not flag_auto:
-            if batch_idx % 20 == 0:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx, len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
+            if batch_idx % 10 == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\t\tLoss: {:.6f}'.format(epoch, batch_idx * batch_size, len(train_loader.dataset),100. * batch_idx / len(train_loader), loss.item()), end = "\r")
     
     if not flag_auto:
         print()
@@ -146,7 +157,7 @@ def train(model, train_loader, optimizer, epoch):
 
 def test(model, test_loader):
     model.eval()
-    test_loss = 0
+    loss = 0
     correct = 0
     with torch.no_grad():
         for data, outputs in test_loader:
@@ -159,14 +170,14 @@ def test(model, test_loader):
             
             loss1 = F.binary_cross_entropy(final, target)
             loss2 = F.binary_cross_entropy(attr_dis, attr)
-            loss = loss1 + loss2
+            loss += loss1 + loss2
 
-            pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
+            pred = final.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
-    test_loss /= len(test_loader.dataset) * 10
+    loss /= len(test_loader.dataset) * 10
 
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(loss, correct, len(test_loader.dataset),))
 
 
 
@@ -312,7 +323,7 @@ def main():
             
             # Get Feature
             maps, features = sharedCNN(input_images, map_model, feature_model)
-            print(maps[0].size(), features[0].size())
+            
             # Build to data set
             for j in range(0, len(maps)):
                 train_x.append([maps[j], features[j]])
@@ -374,7 +385,7 @@ def main():
         t1 = end - start
 
         start = time.time()
-        #test(model, test_loader)
+        test(model, test_loader)
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)

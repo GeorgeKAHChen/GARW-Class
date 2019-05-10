@@ -33,10 +33,10 @@ test_batch_size = 1
 share_batch_size = 200
 
 # Total looping size
-epochs = 150
+epochs = 5000
 
 # Warning, if you using random walk with parameter, it is necessary to change this loss rate with parameter
-lr = 0.2            
+lr = 0.001
 
 # Attribute group
 nb_attributes = [10, 16, 16, 16, 5, 16, 7, 16, 12, 16, 16, 15, 4, 16, 16, 16, 16, 6, 6, 15, 5, 5, 5, 16, 16, 16, 16, 5]
