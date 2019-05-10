@@ -177,7 +177,7 @@ def test(model, test_loader):
             goal = target.argmax(dim=1, keepdim=True)
             correct += pred.eq(goal.view_as(pred)).sum().item()
 
-    loss /= len(test_loader.dataset) * 10
+    loss /= len(test_loader.dataset) * test_batch_size
 
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(loss, correct, len(test_loader.dataset),))
 
