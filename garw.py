@@ -162,7 +162,8 @@ def test(model, test_loader):
     with torch.no_grad():
         for data, outputs in test_loader:
             target, attr = outputs
-            data = torch.Tensor(data).to(device)
+            
+            #data = torch.Tensor(data).to(device)
             target = torch.Tensor(target).to(device)
             attr = torch.Tensor(attr).to(device)
 
@@ -172,8 +173,9 @@ def test(model, test_loader):
             loss2 = F.binary_cross_entropy(attr_dis, attr)
             loss += loss1 + loss2
 
-            pred = final.argmax(dim=1, keepdim=True) # get the index of the max log-probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            pred = final.argmax(dim=1, keepdim=True)
+            goal = target.argmax(dim=1, keepdim=True)
+            correct += pred.eq(goal.view_as(pred)).sum().item()
 
     loss /= len(test_loader.dataset) * 10
 
@@ -211,8 +213,8 @@ def sharedCNN(data, map_model, feature_model):
     #Resize for output
     feature_map = feature_map.reshape(-1, 512, 7 * 7)
     feature = feature.reshape(-1, featurea_length)
-    if not flag_auto:
-        print(feature_map.size(), feature.size())
+    #if not flag_auto:
+    #    print(feature_map.size(), feature.size())
     torch.cuda.empty_cache()
     return feature_map, feature
 
@@ -366,8 +368,6 @@ def main():
         print("Output: Attribute Size:", len(train_y[0][0]), "Class Size:", len(train_y[0][1]))
         print("Train batch size:", batch_size, "Test batch size:", test_batch_size)
 
-    for x, y in train_loader:
-        print(len(y), len(y[0]), y[0][0].size(), y[1][0].size())
     # DATA INITIAL FINISH==================================
 
     # Read Model ==========================================
