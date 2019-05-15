@@ -42,13 +42,16 @@ momentum = parameter.momentum
 seed = parameter.seed
 log_interval = parameter.log_interval
 save_model = parameter.save_model
-flag_auto = parameter.flag_auto
 map_size = parameter.map_size
 featurea_length = parameter.featurea_length
 dataset_location = parameter.dataset_location
 nb_attributes = parameter.nb_attributes
 total_class = parameter.total_class
+flag_auto = parameter.flag_auto
+flag_all = parameter.flag_all
 
+
+#Initial
 attr_class = sum(nb_attributes) + len(nb_attributes)
 attr_total = len(nb_attributes)
 
@@ -65,34 +68,50 @@ torch.manual_seed(seed)
 class attribute_net(nn.Module):
     def __init__(self):
         super(attribute_net, self).__init__()
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
+        self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.02, UU_distant = 0.3, device = device)
         #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "NL", UL_distant = 1, UU_distant = 1, device = device)
         #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
         #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
+        #self.map2attr = nn.Linear(map_size, attr_class, bias = False)
         self.attr2final = nn.Linear(attr_class, total_class, bias = False)
         self.map2final = nn.Linear(featurea_length, total_class, bias = False)
+        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
+        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
+
 
     def forward(self, x):
-        #Input [[None, [512, 196]], [None, 512]]
+        #Input [[None, [512, 49]], [None, 512]]
         attr_map, features = x
         attr_map = torch.Tensor(attr_map).to(device)
         features = torch.Tensor(features).to(device)
         attr_dis = torch.Tensor().to(device)
         for i in range(0, len(attr_map)):
             attr_pdf = self.map2attr(attr_map[i])
-            attr_pdf = F.softmax(attr_pdf)
+            """
+            for p in range(0, len(attr_pdf)):
+                print(attr_map[i][p])
+                print(i, p, attr_pdf[p])
+                if p % 5 == 0:
+                    input()
+            input()
+            """
             attr_sum = torch.sum(attr_pdf.t(), dim = 1)
+            print(attr_sum)
+            input("sum")
+            #print(attr_sum.size())
+            attr_sum = attr_sum / attr_class
             attr_dis = torch.cat([attr_dis, attr_sum])
 
         attr_dis = attr_dis.reshape(-1, attr_class)
-        attr_dis = attr_dis / attr_class
-
+        print(attr_dis)
+        input("total")
+        #print(attr_dis)
+        #print(attr_dis.size())
         attr_final = self.attr2final(attr_dis)
-        attr_final = F.softmax(attr_final)
+        attr_final = F.softmax(attr_final, dim = 1)
 
         map_final = self.map2final(features)
-        map_final = F.softmax(map_final)
+        map_final = F.softmax(map_final, dim = 1)
         
         final = (attr_final + map_final) / 2
         
@@ -130,17 +149,7 @@ def train(model, train_loader, optimizer, epoch):
         optimizer.zero_grad()
         
         final, attr_dis = model(data)
-        #print(final)
-        #print(attr_dis)
-        #print(target)
-        #print(attr)
-        #input("1")
         loss1 = F.binary_cross_entropy(final, target)
-        #print(loss1)
-        #Init.ArrOutput(attr_dis)
-        #time.sleep(1)
-        #Init.ArrOutput(attr)
-        #input("2")
         loss2 = F.binary_cross_entropy(attr_dis, attr)
         loss = loss1 + loss2
         loss.backward()
@@ -301,7 +310,6 @@ def main():
     train_y = comb_tar_attr(train_target_pdf, train_attr_pdf)
     test_y = comb_tar_attr(test_target_pdf, test_attr_pdf)
     
-
     # Build to dataset, treat image to map and feature=====
     # Import Images
     train_image_loader = load_data(train_image, batch_size=share_batch_size)
@@ -383,13 +391,14 @@ def main():
         train(model, train_loader, optimizer, epoch)
         end = time.time()
         t1 = end - start
-
-        start = time.time()
-        test(model, test_loader)
-        end = time.time()
-        t2 = end - start
-        print("Time Usage: Training time", t1, "Testing time", t2)
         
+        if epoch % 20 == 0 or flag_all:
+            start = time.time()
+            test(model, test_loader)
+            end = time.time()
+            t2 = end - start
+            print("Time Usage: Training time", t1, "Testing time", t2)
+            
     if (save_model):
         os.system("mkdir Output")
         torch.save(model.state_dict(),"/Output/Model.pt")
