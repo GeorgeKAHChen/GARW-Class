@@ -92,11 +92,13 @@ class NLRWDense(nn.Module):
 
             Pul = Tul / SumMatrix
             Puu = Tuu / SumMatrix
-            if torch.sum(torch.sum(Puu, dim = 1), dim = 0) == 0:
+
+            IPuu = I - Puu
+            try:
+                IPuu = torch.inverse(IPuu)
+                outputs = torch.mm(IPuu, Pul)
+            except:
                 outputs = Pul
-            else:
-                outputs = torch.mm(torch.inverse(I - Puu), Pul)
-            #Init.ArrOutput(outputs)
             return outputs
 
         else:
