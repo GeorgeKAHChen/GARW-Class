@@ -49,7 +49,7 @@ nb_attributes = parameter.nb_attributes
 total_class = parameter.total_class
 flag_auto = parameter.flag_auto
 flag_all = parameter.flag_all
-losspara = 10
+
 
 #Initial
 attr_class = sum(nb_attributes) + len(nb_attributes)
@@ -68,56 +68,51 @@ torch.manual_seed(seed)
 class attribute_net(nn.Module):
     def __init__(self):
         super(attribute_net, self).__init__()
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.02, UU_distant = 0.3, device = device)
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "NL", UL_distant = 1, UU_distant = 1, device = device)
-        #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
-        self.attr2final = nn.Linear(attr_class, total_class, bias = False)
-        self.map2final = nn.Linear(featurea_length, total_class, bias = False)
-        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
-        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
+        #Block 1 ===========
+        self.idconv1d = nn.Conv1d(parameter.map_size, total_class, kernel_size = 1)
+        self.idbatchnorm1 = nn.AdaptiveAvgPool2d
+        self.idbatchnorm2 = nn.AdaptiveAvgPool2d
+        self.idclass = nn.Linear(attr_class, total_class, bias = False)
+        #Block END =========
 
 
     def forward(self, x):
         #Input [[None, [512, 49]], [None, 512]]
         attr_map, features = x
-        attr_map = torch.Tensor(attr_map).to(device)
-        features = torch.Tensor(features).to(device)
-        attr_dis = torch.Tensor().to(device)
-        for i in range(0, len(attr_map)):
-            attr_pdf = self.map2attr(attr_map[i])
-            """
-            for p in range(0, len(attr_pdf)):
-                print(attr_map[i][p])
-                print(i, p, attr_pdf[p])
-                if p % 5 == 0:
-                    input()
-            input()
-            """
-            attr_sum = torch.sum(attr_pdf.t(), dim = 1)
-            #print(attr_sum)
-            #input("sum")
-            #print(attr_sum.size())
-            attr_sum = attr_sum / attr_class
-            attr_dis = torch.cat([attr_dis, attr_sum])
+        attr_map = attr_map.reshape([-1, 512, parameter.map_size])
+        attr_map = attr_map.permute(0, 2, 1)
 
-        attr_dis = attr_dis.reshape(-1, attr_class)
-        #print(attr_dis)
-        #input("total")
-        #print(attr_dis)
-        #print(attr_dis.size())
-        attr_final = self.attr2final(attr_dis)
-        attr_final = F.softmax(attr_final, dim = 1)
+        #Block 1 ===========
+        id_fea_map = self.idconv1d(attr_map)
+        id_fea_map = self.idbatchnorm(id_fea_map)
+        id_fea_map = F.relu(id_fea_map)
 
-        map_final = self.map2final(features)
-        map_final = F.softmax(map_final, dim = 1)
-        
-        final = (attr_final + map_final) / 2
-        
-        return final, attr_dis
+        id_pool = F.GlobalAvgPooling(id_fea_map)
+        id_pool = self.idbatchnorm2(id_pool)
+        id_pool = F.relu(id_pool)
 
+        id_prob = F.Dropout(id_pool, 0.5)
+        id_prob = self.idclass(id_prob)
+        id_prob = F.softmax(id_prob, dim = 1)
+        #Block END =========
+        return id_prob
 
+"""
+def init_classification(input_fea_map, dim_channel, nb_class, name=None):
+    # conv
+    fea_map = Convolution1D(dim_channel, 1, border_mode='same')(share_fea_map) #qwqWHY?? 一维卷积和全联接？
+    fea_map = BatchNormalization(axis=2)(fea_map)
+    fea_map = Activation('relu')(fea_map)
+    # pool
+    pool = GlobalAveragePooling1D(name=name+'_avg_pool')(fea_map)
+    pool = BatchNormalization()(pool)
+    pool = Activation('relu')(pool)
+    # classification
+    prob = Dropout(dropout)(pool)
+    prob = Dense(nb_class)(prob)
+    prob = Activation(activation='softmax',name=name)(prob)
+    return prob,pool,fea_map
+"""
 
 class map_fea_tar_attr(torch.utils.data.Dataset):
     def __init__(self, x, y):
@@ -151,7 +146,7 @@ def train(model, train_loader, optimizer, epoch):
         final, attr_dis = model(data)
         loss1 = F.binary_cross_entropy(final, target)
         loss2 = F.binary_cross_entropy(attr_dis, attr)
-        loss = loss1 + losspara * loss2
+        loss = loss1 + loss2
         loss.backward()
 
         optimizer.step()
@@ -180,7 +175,7 @@ def test(model, test_loader):
             
             loss1 = F.binary_cross_entropy(final, target)
             loss2 = F.binary_cross_entropy(attr_dis, attr)
-            loss += loss1 + losspara * loss2
+            loss += loss1 + loss2
 
             pred = final.argmax(dim=1, keepdim=True)
             goal = target.argmax(dim=1, keepdim=True)

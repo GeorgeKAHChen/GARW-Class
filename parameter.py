@@ -29,9 +29,9 @@ momentum = 0.5                  # SGD momentum
 seed = 1                        # Random value seed
 log_interval = 10               # How many batches to wait before logging training status
 save_model = True               # Model saving flag
-flag_auto = True               # Running the processing without print information
+flag_auto = True                # Running the processing without print information
 map_size = 7 * 7                # Size of map in feature map
-featurea_length = 1000          # Size of final feature
+featurea_length = 512           # Size of final feature
 flag_all = True                 # Test in every round?
 
 

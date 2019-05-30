@@ -1,17 +1,17 @@
 #=============================================================================
 #
 #       Group Attribute Random Walk Program
-#       garw.py
+#       apr.py
 #
 #       Copyright by KazukiAmakawa, all right reserved
 #
 #=======================================================
 #
 #       Intro
-#       This is the main project we build for pedestrian re-identification
-#       with group attribute random walk model
+#       This file rebuilded the APR(Attribute-Preson Recognization) with RW development
 #
 #=============================================================================
+
 from __future__ import print_function
 import torch
 import torch.nn as nn
@@ -49,7 +49,7 @@ nb_attributes = parameter.nb_attributes
 total_class = parameter.total_class
 flag_auto = parameter.flag_auto
 flag_all = parameter.flag_all
-losspara = 10
+Lambda = 8
 
 #Initial
 attr_class = sum(nb_attributes) + len(nb_attributes)
@@ -68,55 +68,159 @@ torch.manual_seed(seed)
 class attribute_net(nn.Module):
     def __init__(self):
         super(attribute_net, self).__init__()
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "RW", UL_distant = 0.02, UU_distant = 0.3, device = device)
-        #self.map2attr = NLRWClass.NLRWDense(input_features = map_size, output_features = attr_class, work_style = "NL", UL_distant = 1, UU_distant = 1, device = device)
-        #self.attr2final = NLRWClass.NLRWDense(input_features = attr_class, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        #self.map2final = NLRWClass.NLRWDense(input_features = featurea_length, output_features = total_class, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = device)
-        self.map2attr = nn.Linear(map_size, attr_class, bias = False)
-        self.attr2final = nn.Linear(attr_class, total_class, bias = False)
-        self.map2final = nn.Linear(featurea_length, total_class, bias = False)
-        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
-        #self.conv1d1 = nn.Conv2d(in_channels = 1, out_channels = 1)
+        self.fca00l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca00l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca01l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca01l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca02l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca02l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca03l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca03l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca04l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca04l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca05l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca05l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca06l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca06l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca07l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca07l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca08l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca08l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca09l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca09l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca10l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca10l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca11l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca11l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca12l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca12l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca13l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca13l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca14l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca14l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca15l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca15l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca16l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca16l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca17l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca17l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca18l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca18l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca19l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca19l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca20l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca20l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca21l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca21l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca22l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca22l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca23l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca23l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca24l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca24l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca25l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca25l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca26l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca26l2 = nn.Linear(1000, max(nb_attributes))
+        self.fca27l1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fca27l2 = nn.Linear(1000, max(nb_attributes))
+        self.fcil1 = nn.Linear(512 * parameter.map_size, 1000)
+        self.fcil2 = nn.Linear(1000, total_class)
 
 
     def forward(self, x):
         #Input [[None, [512, 49]], [None, 512]]
         attr_map, features = x
-        attr_map = torch.Tensor(attr_map).to(device)
-        features = torch.Tensor(features).to(device)
-        attr_dis = torch.Tensor().to(device)
-        for i in range(0, len(attr_map)):
-            attr_pdf = self.map2attr(attr_map[i])
-            """
-            for p in range(0, len(attr_pdf)):
-                print(attr_map[i][p])
-                print(i, p, attr_pdf[p])
-                if p % 5 == 0:
-                    input()
-            input()
-            """
-            attr_sum = torch.sum(attr_pdf.t(), dim = 1)
-            #print(attr_sum)
-            #input("sum")
-            #print(attr_sum.size())
-            attr_sum = attr_sum / attr_class
-            attr_dis = torch.cat([attr_dis, attr_sum])
-
-        attr_dis = attr_dis.reshape(-1, attr_class)
-        #print(attr_dis)
-        #input("total")
-        #print(attr_dis)
-        #print(attr_dis.size())
-        attr_final = self.attr2final(attr_dis)
-        attr_final = F.softmax(attr_final, dim = 1)
-
-        map_final = self.map2final(features)
-        map_final = F.softmax(map_final, dim = 1)
-        
-        final = (attr_final + map_final) / 2
-        
-        return final, attr_dis
-
+        attr_map = attr_map.view(-1, 512 * parameter.map_size)
+        attr_prob = []
+        attr = self.fca00l1(attr_map)
+        attr = self.fca00l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca01l1(attr_map)
+        attr = self.fca01l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca02l1(attr_map)
+        attr = self.fca02l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca03l1(attr_map)
+        attr = self.fca03l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca04l1(attr_map)
+        attr = self.fca04l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca05l1(attr_map)
+        attr = self.fca05l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca06l1(attr_map)
+        attr = self.fca06l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca07l1(attr_map)
+        attr = self.fca07l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca08l1(attr_map)
+        attr = self.fca08l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca09l1(attr_map)
+        attr = self.fca09l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca10l1(attr_map)
+        attr = self.fca10l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca11l1(attr_map)
+        attr = self.fca11l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca12l1(attr_map)
+        attr = self.fca12l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca13l1(attr_map)
+        attr = self.fca13l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca14l1(attr_map)
+        attr = self.fca14l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca15l1(attr_map)
+        attr = self.fca15l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca16l1(attr_map)
+        attr = self.fca16l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca17l1(attr_map)
+        attr = self.fca17l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca18l1(attr_map)
+        attr = self.fca18l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca19l1(attr_map)
+        attr = self.fca19l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca20l1(attr_map)
+        attr = self.fca20l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca21l1(attr_map)
+        attr = self.fca21l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca22l1(attr_map)
+        attr = self.fca22l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca23l1(attr_map)
+        attr = self.fca23l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca24l1(attr_map)
+        attr = self.fca24l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca25l1(attr_map)
+        attr = self.fca25l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca26l1(attr_map)
+        attr = self.fca26l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        attr = self.fca27l1(attr_map)
+        attr = self.fca27l2(attr)
+        attr_prob.append(F.softmax(attr, dim = 1))
+        identity = self.fcil1(attr_map)
+        identity = self.fcil2(identity)
+        id_prob = F.softmax(identity, dim = 1)
+        return id_prob, attr_prob
 
 
 class map_fea_tar_attr(torch.utils.data.Dataset):
@@ -140,20 +244,32 @@ def train(model, train_loader, optimizer, epoch):
     model.train()
 
     for batch_idx, (data, outputs) in enumerate(train_loader):
-        target, attr = outputs
-
-        #data = torch.Tensor(data).to(device)
-        target = torch.Tensor(target).to(device)
-        attr = torch.Tensor(attr).to(device)
-
-        optimizer.zero_grad()
         
-        final, attr_dis = model(data)
-        loss1 = F.binary_cross_entropy(final, target)
-        loss2 = F.binary_cross_entropy(attr_dis, attr)
-        loss = loss1 + losspara * loss2
+        target, attr = outputs
+        
+        #print(len(attr), len(attr[0]), attr[0][0].size())
+        """
+        target, attr_data = outputs
+        
+        attr = [[0 for n in range(len(attr_data[0]))] for n in range(len(attr_data))]
+        for i in range(0, len(attr_data)):
+            for j in range(0, len(attr_data[i])):
+                attr[i][j] = attr_data[j][i]
+        
+        """
+        target = torch.Tensor(target).to(device)
+        #print(len(attr), attr[0].size())
+        optimizer.zero_grad()
+        id_prob, attr_prob = model(data)
+        #print(id_prob.size())
+        loss1 = F.binary_cross_entropy(id_prob, target)
+        loss2 = 0
+        for i in range(0, len(nb_attributes)):
+            #print(attr_prob[i].size())
+            #print(len(attr[i]))
+            loss2 += F.binary_cross_entropy(attr_prob[i], attr[i])
+        loss = Lambda * loss1 + loss2 / len(nb_attributes)
         loss.backward()
-
         optimizer.step()
         if not flag_auto:
             if batch_idx % 10 == 0:
@@ -172,17 +288,16 @@ def test(model, test_loader):
         for data, outputs in test_loader:
             target, attr = outputs
             
-            #data = torch.Tensor(data).to(device)
             target = torch.Tensor(target).to(device)
-            attr = torch.Tensor(attr).to(device)
-
-            final, attr_dis = model(data)
-            
-            loss1 = F.binary_cross_entropy(final, target)
-            loss2 = F.binary_cross_entropy(attr_dis, attr)
-            loss += loss1 + losspara * loss2
-
-            pred = final.argmax(dim=1, keepdim=True)
+            id_prob, attr_prob = model(data)
+        
+            loss1 = F.binary_cross_entropy(id_prob, target)
+            loss2 = 0
+            for i in range(0, len(nb_attributes)):
+                loss2 += F.binary_cross_entropy(attr_prob[i], attr[i])
+            loss = Lambda * loss1 + loss2 / len(nb_attributes)
+        
+            pred = id_prob.argmax(dim=1, keepdim=True)
             goal = target.argmax(dim=1, keepdim=True)
             correct += pred.eq(goal.view_as(pred)).sum().item()
 
@@ -240,17 +355,14 @@ def tar2pdf(inputs, maxx):
 
     outputs = []
     if multi_layer:
-        
         for i in range(0, len(inputs)):
-            step_output = np.array([0 for n in range(attr_class)])
-            
-            tmp = 0
+            step_output = []
+            ttl = 0
             for j in range(0, len(inputs[i])):
-                step_output[tmp + inputs[i][j]] = 1
-                tmp += nb_attributes[j]
-            step_output = step_output / attr_total
-            
-            step_output = step_output
+                RoundOutput = [0 for n in range(max(nb_attributes))]
+                RoundOutput[inputs[i][j]] = 1
+                ttl += 1
+                step_output.append(torch.Tensor(RoundOutput).to(device))
             outputs.append(step_output)
 
     else:
@@ -282,7 +394,7 @@ def load_data(inputs, batch_size):
 def comb_tar_attr(tar, attr):
     outputs = []
     for i in range(0, len(tar)):
-        outputs.append([torch.Tensor(tar[i]).to(device), torch.Tensor(attr[i]).to(device)])
+        outputs.append([torch.Tensor(tar[i]).to(device), attr[i]])
     return outputs
 
 
