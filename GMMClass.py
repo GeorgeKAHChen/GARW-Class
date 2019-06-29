@@ -30,7 +30,7 @@ class GMMDense(nn.Module):
         self.Sigma           = nn.Parameter(torch.Tensor(output_features, input_features, input_features)).to(self.device)
         
         self.prob.data.uniform_(0, 1)
-        self.Mu.data.uniform_(-1, 1)
+        self.Mu.data.uniform_(0, 1)
         self.Sigma.data.uniform_(0.5, 1)
 
 
@@ -77,44 +77,45 @@ class GMMDense(nn.Module):
         Zero = torch.zeros(1).to(self.device)
         epsilon = torch.Tensor([1e-5]).to(self.device)
 
-        sigma_inv = []
-        sigma_det = torch.zeros().to(self.device)
+        sigma_inv = torch.zeros([self.output_features, self.input_features, self.input_features]).to(self.device)
+        sigma_det = torch.zeros(self.output_features).to(self.device)
         for i in range(0, len(self.Sigma)):
-            sigma_inv.append(torch.inverse(self.Sigma[i]).to(self.device))
-            print(self.Sigma[i])
-            print(torch.det(self.Sigma[i]))
+            sigma_inv[i] = torch.inverse(self.Sigma[i])
+
             det = torch.sqrt(torch.max(torch.det(self.Sigma[i]), Zero)).to(self.device)
-            print(det)
             if torch.gt(det, epsilon):
                 det = torch.Tensor(1).to(self.device)
-                sigma_det.append(1/det)
+                sigma_det[i] = 0.3989422804014327/det
             else:
-                sigma_det.append([0])
-        print(sigma_det)
-        return sigma_inv, torch.Tensor(sigma_det).to(self.device)
+                sigma_det[i] = 0
+
+        return sigma_inv, sigma_det
 
 
     def forward(self, input):
         import math
-        Zero        = torch.zeros(1).to(self.device)
+        Zero = torch.zeros(1).to(self.device)
                                             # def para =: 0 as tensor
         GMMDense.Unit_prob(self)            # Initial self.prob parameter as normal
-        #GMMDense.Output_Model(self)        # Save Model
+        
+        if len(input) == 1:
+            GMMDense.Output_Model(self)     # Save Model
+
         sigma_inv, sigma_det = GMMDense.Sigma_Cal(self)
                                             # cal sigma-inverse and sigma-det to calculate
-        pi_para     = 0.3989422804014327 * sigma_det
-                                            # def para =: 1/sqrt(2 * pi det(sigma))
-        pre_para    = torch.mul(pi_para, self.prob)
-                                            # p_i \over {2 \pi |\Sigma|}
-        pre_para    = torch.reshape(pre_para, [-1, 1])
-        exp_val     = -0.5 * torch.exp(torch.mm( torch.mm( (input - mu).t(), sigma_inv), (input - mu))).to(device)
-                                            # exp((x-\mu)^t \Sigma^{-1} (x-\mu))
-        exp_val     = torch.reshape(exp_val, [-1, 1])
+        outputs = torch.zeros(self.output_features, len(input)).to(self.device)
 
-        outputs     = torch.zeros(self.input_features, self.output_features).to(self.device)
-        for i in range(0, len(outputs)):
-            for j in range(0, len(outputs[i])):
-                outputs[i][j] = exp_val[i] * pre_para[j]
+        for j in range(0, self.output_features):
+            x_neg_mu = input - self.Mu[j]
+            #outputs[j] = sigma_det[j] * torch.exp(-0.5 * (
+            outputs[j] = torch.exp(-0.5 * (
+                torch.max( torch.sum(torch.mul(torch.mm(x_neg_mu, sigma_inv[j]), x_neg_mu), dim = 1), Zero)
+                ))
+        outputs = outputs.t()
+        SumOps = torch.sum(outputs, dim = 1)
+        SumOps = torch.reshape(SumOps, [-1, 1])
+        outputs /= SumOps
+        #print(outputs)
         return outputs
 
 
