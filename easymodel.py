@@ -49,7 +49,8 @@ nb_attributes = parameter.nb_attributes
 total_class = parameter.total_class
 flag_auto = parameter.flag_auto
 flag_all = parameter.flag_all
-losspara = 10
+loss_round = parameter.loss_round
+loss_multi = parameter.loss_multi
 
 #Initial
 attr_class = sum(nb_attributes) + len(nb_attributes)
@@ -258,19 +259,38 @@ def main():
 
     # Read Model ==========================================
     model = eval(model_flag)(pretrained=False)
+    """
     model.fc = nn.Sequential(
         nn.Dropout(0.5),
         nn.Linear(2048, 1000),
         nn.Dropout(0.5),
         nn.Linear(1000, 200),
-        nn.Softmax(dim = 200)
+        nn.Softmax()
+    )
+    """
+    model.fc = nn.Sequential(
+        nn.Dropout(0.5),
+        nn.Linear(2048, 1000),
+        nn.Dropout(0.5),
+        NLRWClass.NLRWDense(input_features = 1000, 
+                output_features = 200, 
+                work_style = "RW", 
+                UL_distant = 0.1, 
+                UU_distant = 1, 
+                device = device)
     )
     model = nn.DataParallel(model, device_ids=[0,1])
     if flag_auto:
         print(model)
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
+    loss_rate = lr
+    true_round = loss_round * 10
+    optimizer = optim.SGD(model.parameters(), lr=lossrate, momentum=momentum)
 
     for epoch in range(1, epochs + 1):
+        if epoch % loss_round == 0:
+            loss_rate *= loss_multi
+            true_round *= 2
+            optimizer = optim.SGD(model.parameters(), lr=loss_rate, momentum=momentum)
         print("Looping epoch = ", epoch)
         start = time.time()
         train(model, train_loader, optimizer, epoch)
