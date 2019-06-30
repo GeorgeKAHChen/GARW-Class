@@ -39,6 +39,7 @@ class NLRWDense(nn.Module):
 
     def forward(self, input):
         Zero = torch.zeros(1).to(self.device)
+        epsilon = torch.Tensor([1e-5]).to(self.device)
         #print(self.weight)
         wei2 = torch.sum(torch.mul(self.weight, self.weight), dim = 1)
         inp2 = torch.sum(torch.mul(input, input), dim = 1)
@@ -63,6 +64,7 @@ class NLRWDense(nn.Module):
             SumTul = torch.sum(Tul, dim = 1)
 
             SumTul = SumTul.reshape([-1, 1])
+            SumTul = torch.max(SumTul, epsilon)
             outputs = torch.div(Tul, SumTul)
             #print(outputs)
             return outputs
@@ -89,6 +91,8 @@ class NLRWDense(nn.Module):
 
             SumMatrix = SumTul + SumTuu
             SumMatrix = torch.reshape(SumMatrix, [-1, 1])
+
+            SumMatrix = torch.max(SumMatrix, epsilon)
 
             Pul = Tul / SumMatrix
             Puu = Tuu / SumMatrix

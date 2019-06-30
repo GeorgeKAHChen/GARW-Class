@@ -44,7 +44,6 @@ class GMMDense(nn.Module):
     def Output_Model(self):
         OupArr = str(self.input_features) + "\t" + str(self.output_features) + "\n"
         for i in range(0, len(self.prob)):
-            print(i)
             OupArr += str(self.prob[i])
             OupArr += "\n"
             for j in range(0, len(self.Mu[i])):
@@ -96,6 +95,7 @@ class GMMDense(nn.Module):
         import math
         Zero = torch.zeros(1).to(self.device)
                                             # def para =: 0 as tensor
+        epsilon = torch.Tensor([1e-5]).to(self.device)
         GMMDense.Unit_prob(self)            # Initial self.prob parameter as normal
         
         if len(input) == 1:
@@ -112,7 +112,7 @@ class GMMDense(nn.Module):
                 torch.max( torch.sum(torch.mul(torch.mm(x_neg_mu, sigma_inv[j]), x_neg_mu), dim = 1), Zero)
                 ))
         outputs = outputs.t()
-        SumOps = torch.sum(outputs, dim = 1)
+        SumOps = torch.max(torch.sum(outputs, dim = 1), epsilon)
         SumOps = torch.reshape(SumOps, [-1, 1])
         outputs /= SumOps
         #print(outputs)

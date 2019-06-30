@@ -84,7 +84,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
     if not flag_auto:
         print()
 
-def test(args, model, device, test_loader):
+
+def test(args, model, device, test_loader, save_model):
     model.eval()
     test_loss = 0
     correct = 0
@@ -98,22 +99,21 @@ def test(args, model, device, test_loader):
             test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item() # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
-
-    test_loss /= len(test_loader.dataset) * 10
-
+        if save_model:
+            output = model(torch.rand([1, 1, 28, 28]).to(device))
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
 
 
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=32, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N',
+    parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
                         help='input batch size for testing (default: 1)')
     parser.add_argument('--epochs', type=int, default=150, metavar='N',
                         help='number of epochs to train (default: 150)')
-    parser.add_argument('--lr', type=float, default=0.2, metavar='LR',
+    parser.add_argument('--lr', type=float, default=0.02, metavar='LR',
                         help='learning rate (default: 0.02), Warning, if you using random walk with parameter, it is necessary to change this loss rate with parameter')
     parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                         help='SGD momentum (default: 0.5)')
@@ -164,7 +164,7 @@ def main():
 
         #test(args, model, device, train_loader)
         start = time.time()
-        test(args, model, device, test_loader)
+        test(args, model, device, test_loader, True)
         end = time.time()
         t2 = end - start
         print("Time Usage: Training time", t1, "Testing time", t2)
