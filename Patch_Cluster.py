@@ -30,21 +30,18 @@ import GMMClass
 
 model_flag = parameter.model_flag
 device = parameter.device
-batch_size = parameter.batch_size
-test_batch_size = parameter.test_batch_size
+batch_size = 10000
+test_batch_size = 500000
 epochs = parameter.epochs
-lr = parameter.lr           
+lr = 0.02           
 momentum = parameter.momentum
 seed = parameter.seed
 flag_auto = parameter.flag_auto
 log_interval = parameter.log_interval
-
-
-#Parameter for image parch cluster
 patch_size  = 7
 strick_size = 3
-input_size  = 20000
-output_size = 100
+input_size  = 2000000
+output_size = 300
 
 if device == "cuda":
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -98,7 +95,7 @@ def train( model, device, train_loader, optimizer, epoch):
 
 
 # E Step: Testing Processing
-def test(model, device, test_loader, save_model):
+def test(model, device, test_loader, save_model, data_y):
     model.eval()
     test_loss = 0
     correct = 0
@@ -116,10 +113,11 @@ def test(model, device, test_loader, save_model):
             pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
             results[loc:loc+len(pred)] = torch.reshape(pred, [-1]).to(device)
             loc += test_batch_size
-            #correct += pred.eq(target.item().view_as(pred)).sum().item()
-            correct = 1
         if save_model:
             output = model(torch.rand([1, 1, 28, 28]).to(device))
+    #print(data_y)
+    #print(results)
+    correct = results.eq(data_y.view_as(results)).sum().item() 
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
     return results
 
@@ -138,6 +136,8 @@ def main():
         q = 0
         stop_patch = False
         while 1:
+            if len(patchs) != 0 and len(patchs) % 100000 == 0:
+                print(len(patchs), "/", input_size, end = "\r")
             if q + patch_size + strick_size >= len(img[i]):
                 p += strick_size
                 q = 0
@@ -153,7 +153,7 @@ def main():
         if stop_patch:
             break
 
-    print("Total patchs:", len(patchs), "Patch size: ", patchs[0].size())
+    print("Total patchs:", len(patchs), "Patch size: ", patchs[0].size(), "Output Class", output_size)
     
 
     #Initial Model
@@ -175,9 +175,9 @@ def main():
         start        = time.time()
         test_loader  = torch.utils.data.DataLoader(data_set, batch_size = test_batch_size, shuffle = False)
         if epoch % 5 == 0 and epoch != 0:
-            data_y   = test(model, device, test_loader, True)
+            data_y   = test(model, device, test_loader, True, data_y)
         else:
-            data_y   = test(model, device, test_loader, False)
+            data_y   = test(model, device, test_loader, False, data_y)
         end          = time.time()
         t2           = end - start
 

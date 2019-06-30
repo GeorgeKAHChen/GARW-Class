@@ -101,8 +101,10 @@ class NLRWDense(nn.Module):
             try:
                 IPuu = torch.inverse(IPuu)
                 outputs = torch.mm(IPuu, Pul)
+                outputs = torch.max(outputs, epsilon)
             except:
                 outputs = Pul
+                outputs = torch.max(outputs, epsilon)
             return outputs
 
         else:
