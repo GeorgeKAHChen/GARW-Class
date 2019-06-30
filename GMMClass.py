@@ -63,7 +63,7 @@ class GMMDense(nn.Module):
                 final_arr += OupArr[i]
         import os
         os.system("rm -rf Model.out")
-        FileName = "Model.out"
+        FileName = "Model" + str(self.input_features) + ".out"
         File = open(FileName, "w")
         File.write(final_arr)
         File.close()
@@ -100,6 +100,7 @@ class GMMDense(nn.Module):
         
         if len(input) == 1:
             GMMDense.Output_Model(self)     # Save Model
+            return 
 
         sigma_inv, sigma_det = GMMDense.Sigma_Cal(self)
                                             # cal sigma-inverse and sigma-det to calculate

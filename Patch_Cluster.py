@@ -27,18 +27,20 @@ import parameter
 from libpy import Init
 #import NLRWClass
 import GMMClass
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 model_flag = parameter.model_flag
 device = parameter.device
-batch_size = 10000
-test_batch_size = 500000
+batch_size = 100
+test_batch_size = 100
 epochs = parameter.epochs
 lr = 0.02           
 momentum = parameter.momentum
 seed = parameter.seed
 flag_auto = parameter.flag_auto
 log_interval = parameter.log_interval
-patch_size  = 7
+patch_size  = 6
 strick_size = 3
 input_size  = 2000000
 output_size = 300
@@ -114,7 +116,7 @@ def test(model, device, test_loader, save_model, data_y):
             results[loc:loc+len(pred)] = torch.reshape(pred, [-1]).to(device)
             loc += test_batch_size
         if save_model:
-            output = model(torch.rand([1, 1, 28, 28]).to(device))
+            output = model(torch.rand([1, 1, patch_size * patch_size]).to(device))
     #print(data_y)
     #print(results)
     correct = results.eq(data_y.view_as(results)).sum().item() 
