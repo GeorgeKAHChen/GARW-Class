@@ -24,12 +24,12 @@ import time
 import os
 
 from libpy import Init
-import NLRWClass
+import NLClass
 import CUB_load
 import parameter
 
 #Initialization======================================================
-
+class_flag = "rw"
 #Read parameter from parameter.py file
 model_flag = parameter.model_flag
 device = parameter.device
@@ -259,26 +259,26 @@ def main():
 
     # Read Model ==========================================
     model = eval(model_flag)(pretrained=False)
-    """
-    model.fc = nn.Sequential(
-        nn.Dropout(0.5),
-        nn.Linear(2048, 1000),
-        nn.Dropout(0.5),
-        nn.Linear(1000, 200),
-        nn.Softmax()
-    )
-    """
-    model.fc = nn.Sequential(
-        nn.Dropout(0.5),
-        nn.Linear(2048, 1000),
-        nn.Dropout(0.5),
-        NLRWClass.NLRWDense(input_features = 1000, 
-                output_features = 200, 
-                work_style = "RW", 
-                UL_distant = 0.1, 
-                UU_distant = 1, 
-                device = device)
-    )
+    if class_flag == "lc":
+        model.fc = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(2048, 1000),
+            nn.Dropout(0.5),
+            nn.Linear(1000, 200),
+            nn.Softmax()
+        )
+    if class_flag == "rw":
+        model.fc = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(2048, 1000),
+            nn.Dropout(0.5),
+            NLClass.NLRWDense(input_features = 1000, 
+                    output_features = 200, 
+                    work_style = "RW", 
+                    UL_distant = 0.1, 
+                    UU_distant = 1, 
+                    device = device)
+        )
     model = nn.DataParallel(model, device_ids=[0,1])
     if flag_auto:
         print(model)

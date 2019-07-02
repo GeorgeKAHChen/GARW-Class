@@ -22,8 +22,7 @@ from torchvision import datasets, transforms
 import time
 
 from libpy import Init
-import NLRWClass
-import GMMClass
+import NLClass
 
 flag_auto = False
 class Net(nn.Module):
@@ -35,8 +34,8 @@ class Net(nn.Module):
         
         self.fc1 = nn.Linear(252, 64)
 
-        #self.Classification = NLRWClass.NLRWDense(input_features = 64, output_features = 10, work_style = "NL", UL_distant = 1, UU_distant = 1, device = "cuda")
-        #self.Classification = NLRWClass.NLRWDense(input_features = 64, output_features = 10, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = "cuda")
+        #self.Classification = NLClass.NLRWDense(input_features = 64, output_features = 10, work_style = "NL", UL_distant = 1, UU_distant = 1, device = "cuda")
+        #self.Classification = NLClass.NLRWDense(input_features = 64, output_features = 10, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = "cuda")
         #self.Classification = nn.Linear(64, 10, bias = False)
         self.Classification = GMMClass.GMMDense(input_features = 64, output_features = 10, device = "cuda")
         

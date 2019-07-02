@@ -26,16 +26,16 @@ from PIL import Image
 import parameter
 from libpy import Init
 #import NLRWClass
-import GMMClass
+import NLClass
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 model_flag = parameter.model_flag
 device = parameter.device
-batch_size = 100
-test_batch_size = 100
+batch_size = 500
+test_batch_size = 2000
 epochs = parameter.epochs
-lr = 0.02           
+lr = 0.001           
 momentum = parameter.momentum
 seed = parameter.seed
 flag_auto = parameter.flag_auto
@@ -54,8 +54,8 @@ torch.manual_seed(seed)
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.Classification = GMMClass.GMMDense(input_features = patch_size * patch_size, output_features = output_size, device = "cuda")
-        
+        self.Classification = NLClass.GMMDense(input_features = patch_size * patch_size, output_features = output_size, device = "cuda")
+        #self.Classification = NLClass.NLRWDense(input_features = patch_size * patch_size, output_features = output_size, work_style = "RW", UL_distant = 0.1, UU_distant = 0.5, device = "cuda")
 
     def forward(self, x):
         return self.Classification(x)
@@ -111,16 +111,24 @@ def test(model, device, test_loader, save_model, data_y):
                 YData[i][target[i]] = 1
             data, YData, target = data.to(device), torch.Tensor(YData).to(device), target.to(device)
             output = model(data)
-            test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item() # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability
+            test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item()
+            pred = output.argmax(dim=1, keepdim=True)
             results[loc:loc+len(pred)] = torch.reshape(pred, [-1]).to(device)
             loc += test_batch_size
         if save_model:
             output = model(torch.rand([1, 1, patch_size * patch_size]).to(device))
-    #print(data_y)
-    #print(results)
+    
+    test_loss /= len(data_y)
     correct = results.eq(data_y.view_as(results)).sum().item() 
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
+
+    if correct / len(test_loader.dataset) > 0.9:
+        print("HIGH ACCURACY, TERMINATED THE PROCESSING")
+        with torch.no_grad():
+            output = model(torch.rand([1, 1, patch_size * patch_size]).to(device))
+        import os
+        os._exit()
+    
     return results
 
 
@@ -157,12 +165,11 @@ def main():
 
     print("Total patchs:", len(patchs), "Patch size: ", patchs[0].size(), "Output Class", output_size)
     
-
+    loss_rate = lr
     #Initial Model
     model     = Net().to(device)
     print(model)
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
-
+    optimizer = optim.SGD(model.parameters(), lr=loss_rate, momentum=momentum)
     
     #Initial Data
     data_x      = patchs
@@ -178,6 +185,8 @@ def main():
         test_loader  = torch.utils.data.DataLoader(data_set, batch_size = test_batch_size, shuffle = False)
         if epoch % 5 == 0 and epoch != 0:
             data_y   = test(model, device, test_loader, True, data_y)
+            loss_rate /= 10
+            optimizer = optim.SGD(model.parameters(), lr=loss_rate, momentum=momentum)
         else:
             data_y   = test(model, device, test_loader, False, data_y)
         end          = time.time()
