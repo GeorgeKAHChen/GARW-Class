@@ -37,7 +37,7 @@ class Net(nn.Module):
         #self.Classification = NLClass.NLRWDense(input_features = 64, output_features = 10, work_style = "NL", UL_distant = 1, UU_distant = 1, device = "cuda")
         #self.Classification = NLClass.NLRWDense(input_features = 64, output_features = 10, work_style = "RW", UL_distant = 0.1, UU_distant = 0.1, device = "cuda")
         #self.Classification = nn.Linear(64, 10, bias = False)
-        self.Classification = GMMClass.GMMDense(input_features = 64, output_features = 10, device = "cuda")
+        self.Classification = NLClass.GMMDense(input_features = 64, output_features = 10, device = "cuda")
         
 
     def forward(self, x):

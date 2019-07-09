@@ -49,28 +49,74 @@ img_rows, img_cols = 448, 448
 L = 14*14
 lr_list = [0.001,0.003,0.0001]
 
-def init_classification(input_fea_map, dim_channel, nb_class, name=None):
-    # conv
-    fea_map = Convolution1D(dim_channel, 1, border_mode='same')(share_fea_map)
-    fea_map = BatchNormalization(axis=2)(fea_map)
-    fea_map = Activation('relu')(fea_map)
-    # pool
-    pool = GlobalAveragePooling1D(name=name+'_avg_pool')(fea_map)
-    pool = BatchNormalization()(pool)
-    pool = Activation('relu')(pool)
-    # classification
-    pool = Dropout(dropout)(pool)
-    prob = Dense(nb_class)(pool)
-    prob = Activation(activation='softmax',name=name)(prob)
-    return prob,pool,fea_map
 
 # model define
 alphas = [lambdas[1]*1.0/len(nb_attributes)]*len(nb_attributes)
 loss_dict = {}
 weight_dict = {}
-# input and output
-inputs = Input(shape=(3, img_rows, img_cols))
-out_list = []
+
+
+
+
+class init_classification(nn.Module):
+    def __init__(self, input_size, dim_channel, nb_classes):
+        super(init_classification, self).__init__()
+        self.input_size     = input_size
+        self.dim_channel    = dim_channel
+        self.nb_classes     = nb_classes
+        self.name           = name
+
+        self.conv1d         = torch.nn.Conv1d(self.input_size, self.dim_channel, 1)
+        self.bn1            = nn.BatchNorm1d(num_features = self.dim_channel)
+        self.bn2            = nn.BatchNorm1d(num_features = self.dim_channel)
+        self.dense          = nn.Linear(self.dim_channel, nb_classes)
+    
+
+    def forward(self, x):
+        fea_map             = self.conv1d(x)
+        fea_map             = self.bn1(fea_map)
+        fea_map             = F.relu(fea_map)
+
+        pool                = avg_pool1d(fea_map, self.dim_channel)
+        pool                = self.bn2(pool)
+        pool                = F.relu(pool)
+        pool                = F.Dropout(pool)
+
+        prob                = self.dense(pool)
+        prob                = F.softmax(prob)
+
+        return prob, pool, fea_map
+
+
+
+
+class A3M(nn.Module):
+    def __init__(self, net):
+        super(A3M, self).__init__()
+
+    def forward(self, x):
+        out_list = []
+        id_prob,id_pool,id_fea_map           = init_classification(share_fea_map, emb_dim, nb_classes)
+        out_list.append(id_prob)
+
+        attr_fea_list = []
+        for i in range(len(nb_attributes)):
+            attr_prob,attr_pool,attr_fea_map = init_classification(share_fea_map, emb_dim, nb_attributes[i])
+            out_list.append(attr_prob)
+            attr_fea_list.append(attr_pool)
+
+
+        region_score_map_list = []
+        attr_score_list = []
+        for i in range(len(nb_attributes)):
+            attn1 = ([id_fea_map,attr_fea_list[i]], mode='dot', dot_axes=(2,1)) 
+            fea_score = merge([id_pool,attr_fea_list[i]], mode='dot', dot_axes=(1,1))
+            region_score_map_list.append(attn1)
+            attr_score_list.append(fea_score)
+        
+
+        return Finals
+
 
 # shared CNN
 model_raw = eval(net)(input_tensor=inputs, include_top=False, weights='imagenet')
@@ -78,21 +124,6 @@ share_fea_map = model_raw.get_layer(shared_layer_name).output
 share_fea_map = Reshape((final_dim, L), name='reshape_layer')(share_fea_map)        
 share_fea_map = Permute((2, 1))(share_fea_map) 
 
-# loss-1: identity classification
-id_prob,id_pool,id_fea_map = init_classification(share_fea_map, emb_dim, nb_classes, name='p0')
-out_list.append(id_prob)
-loss_dict['p0'] = 'categorical_crossentropy'
-weight_dict['p0'] = lambdas[0]
-
-# loss-2: attribute classification
-attr_fea_list = []
-for i in range(len(nb_attributes)):
-    name ='attr'+str(i)
-    attr_prob,attr_pool,_ = init_classification(share_fea_map, emb_dim, nb_attributes[i], name)
-    out_list.append(attr_prob)
-    attr_fea_list.append(attr_pool)
-    loss_dict[name] = 'categorical_crossentropy'
-    weight_dict[name] = alphas[i]
 
 # attention generation
 region_score_map_list = []
@@ -156,6 +187,8 @@ yA_train = np.concatenate((np.expand_dims(y_train,1), A_train), axis=1)
 yA_test = np.concatenate((np.expand_dims(y_test,1), A_test), axis=1)
 print('yA_train shape:', yA_train.shape)
 print('yA_test shape:', yA_test.shape)
+
+
 
 # train/test
 for lr in lr_list:

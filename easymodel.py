@@ -27,6 +27,7 @@ from libpy import Init
 import NLClass
 import CUB_load
 import parameter
+import os
 
 #Initialization======================================================
 class_flag = "rw"
@@ -61,6 +62,10 @@ if device == "cuda":
     #torch.multiprocessing.set_start_method("spawn")
 torch.manual_seed(seed)
 
+for i in range(1: len(sys.argv)):
+    if sys.argv[i] == "-m":
+        class_flag = sys.argv[i+1]
+        i += 1
 
 
 
@@ -277,6 +282,7 @@ def main():
                     work_style = "RW", 
                     UL_distant = 0.1, 
                     UU_distant = 1, 
+                    trainsize = test_batch_size / 2 - 1,
                     device = device)
         )
     model = nn.DataParallel(model, device_ids=[0,1])
@@ -284,7 +290,7 @@ def main():
         print(model)
     loss_rate = lr
     true_round = loss_round * 10
-    optimizer = optim.SGD(model.parameters(), lr=lossrate, momentum=momentum)
+    optimizer = optim.SGD(model.parameters(), lr=loss_rate, momentum=momentum)
 
     for epoch in range(1, epochs + 1):
         if epoch % loss_round == 0:

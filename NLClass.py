@@ -23,6 +23,7 @@ class NLRWDense(nn.Module):
                 work_style = "NL", 
                 UL_distant = 1, 
                 UU_distant = 1, 
+                trainsize = 32,
                 device = "cuda"):
 
         super(NLRWDense, self).__init__()
@@ -31,6 +32,7 @@ class NLRWDense(nn.Module):
         self.work_style = work_style
         self.UU_distant = UU_distant
         self.UL_distant = UL_distant
+        self.trainsize = trainsize
         self.device = device
 
         self.weight = nn.Parameter(torch.Tensor(output_features, input_features))
@@ -81,7 +83,7 @@ class NLRWDense(nn.Module):
 
         #print(Tul)
         #Main Train and call function
-        if self.work_style == "NL" or len(input) == 1:
+        if self.work_style == "NL" or len(input) >= self.trainsize / 2 - 1:
             SumTul = torch.sum(Tul, dim = 1)
 
             SumTul = SumTul.reshape([-1, 1])
@@ -156,13 +158,15 @@ class NLRWDense(nn.Module):
 class GMMDense(nn.Module):
     def __init__(self, 
                 input_features, 
-                output_features,  
+                output_features, 
+                log_mark = False, 
                 device = "cuda"):
 
         super(GMMDense, self).__init__()
         self.input_features  = input_features
         self.output_features = output_features
         self.device          = device
+        self.log_mark        = log_mark
 
         self.prob            = nn.Parameter(torch.Tensor(output_features, 1)).to(self.device)
         self.Mu              = nn.Parameter(torch.Tensor(output_features, input_features)).to(self.device)
@@ -178,36 +182,8 @@ class GMMDense(nn.Module):
         self.prob = nn.Parameter(torch.max(self.prob, Zero))
         sum_prob  = torch.sum(self.prob).to(self.device)
         self.prob = nn.Parameter(self.prob / sum_prob)
-
-
-    def Output_Model(self):
-        import numpy as np
-        inp_fea = self.input_features
-        oup_fea = self.output_features
-        prob    = self.prob.cpu().detach().numpy()
-        Mu      = self.Mu.cpu().detach().numpy()
-        Sigma   = self.Sigma.cpu().detach().numpy()
-        OupArr  = str(inp_fea) + "\t" + str(oup_fea) + "\n"
-
-        for i in range(0, len(prob)):
-            OupArr += str(prob[i][1])
-            OupArr += "\n"
-            for j in range(0, len(Mu[i])):
-                OupArr += str(Mu[i][j])
-                OupArr += "\t"
-            OupArr += "\n"
-            for j in range(0, len(Sigma[i])):
-                for k in range(0, len(Sigma[i][j])):
-                    OupArr += str(Sigma[i][j][k])
-                    OupArr += "\t"
-                OupArr += "\n"
-        
-        FileName = "Output/Model" + str(inp_fea) + ".out"
-        File = open(FileName, "w")
-        File.write(OupArr)
-        File.close()
-        print("Model Saved Succeed, file name: Model.out")
-        return
+        Zero      = torch.zeros(self.Sigma.size()).to(self.device)
+        self.Sigma = nn.Parameter(torch.max(self.Sigma, Zero))
 
 
 
@@ -223,11 +199,50 @@ class GMMDense(nn.Module):
             det = torch.sqrt(torch.max(torch.det(self.Sigma[i]), Zero)).to(self.device)
             if torch.gt(det, epsilon):
                 det = torch.Tensor(1).to(self.device)
-                sigma_det[i] = 0.3989422804014327/det
+                if not self.log_mark:
+                    sigma_det[i] = 0.3989422804014327/det
+                else:
+                    sigma_det[i] = torch.log(6.283185307179586 * det)
             else:
                 sigma_det[i] = 0
 
         return sigma_inv, sigma_det
+
+
+
+    def Output_Model(self):
+        import numpy as np
+        import math
+        inp_fea     = self.input_features
+        oup_fea     = self.output_features
+        prob        = self.prob.cpu().detach().numpy()
+        Mu          = self.Mu.cpu().detach().numpy()
+        Sigma       = self.Sigma.cpu().detach().numpy()
+        OupArr      = str(inp_fea) + "\t" + str(oup_fea) + "\n"
+        _, det      = Sigma_Cal(self)
+        det         = self.det.cpu().detach().numpy()
+        true_weight = math.log(6.283185307179586 * det)
+        #print(np.shape(true_weight))
+
+        for i in range(0, len(prob)):
+            OupArr += str(true_weight[i] / prob[i][0])
+            OupArr += "\n"
+            for j in range(0, len(Mu[i])):
+                OupArr += str(Mu[i][j])
+                OupArr += "\t"
+            OupArr += "\n"
+            for j in range(0, len(Sigma[i])):
+                for k in range(0, len(Sigma[i][j])):
+                    OupArr += str(Sigma[i][j][k])
+                    OupArr += "\t"
+                OupArr += "\n"
+        
+        FileName = "Output/Model" + str(inp_fea) + ".out"
+        File = open(FileName, "w")
+        File.write(OupArr)
+        File.close()
+        print("Model Saved Succeed, file name: Model" + str(inp_fea) + ".out")
+        return
 
 
     def forward(self, input):
@@ -245,18 +260,31 @@ class GMMDense(nn.Module):
                                             # cal sigma-inverse and sigma-det to calculate
         outputs = torch.zeros(self.output_features, len(input)).to(self.device)
 
-        for j in range(0, self.output_features):
-            x_neg_mu = input - self.Mu[j]
-            #outputs[j] = sigma_det[j] * torch.exp(-0.5 * (
-            outputs[j] = torch.exp(-0.5 * (
-                torch.max( torch.sum(torch.mul(torch.mm(x_neg_mu, sigma_inv[j]), x_neg_mu), dim = 1), Zero)
-                ))
-        outputs = outputs.t()
-        SumOps = torch.max(torch.sum(outputs, dim = 1), epsilon)
-        SumOps = torch.reshape(SumOps, [-1, 1])
-        outputs /= SumOps
-        #print(outputs)
-        return outputs
+        if not self.log_mark:
+            for j in range(0, self.output_features):
+                x_neg_mu = input - self.Mu[j]
+                #outputs[j] = sigma_det[j] * torch.exp(-0.5 * (
+                outputs[j] = torch.exp(-0.5 * (
+                    torch.max( torch.sum(torch.mul(torch.mm(x_neg_mu, sigma_inv[j]), x_neg_mu), dim = 1), Zero)
+                    ))
+            outputs = outputs.t()
+            SumOps = torch.max(torch.sum(outputs, dim = 1), epsilon)
+            SumOps = torch.reshape(SumOps, [-1, 1])
+            outputs /= SumOps
+            #print(outputs)
+        
+        else:
+            for j in range(0, self.output_features):
+                x_neg_mu = input - self.Mu[j]
+                print(torch.log(sigma_det[j]))
+                outputs[j] = -0.5 * (torch.sum(  torch.mul(torch.mm(x_neg_mu, sigma_inv[j]), x_neg_mu), dim = 1)+ torch.log(sigma_det[j])) - torch.log(self.prob[j])
+            outputs = outputs.t()
+            #print(outputs.size())
+            #SumOps = torch.max(torch.sum(outputs, dim = 1), epsilon)
+            #SumOps = torch.reshape(SumOps, [-1, 1])
+            #outputs /= SumOps
+            #print(outputs)
+            return outputs
 
 
 

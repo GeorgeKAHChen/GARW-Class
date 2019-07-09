@@ -28,6 +28,7 @@ from libpy import Init
 #import NLRWClass
 import NLClass
 import os
+import sys
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 model_flag = parameter.model_flag
@@ -41,9 +42,31 @@ seed = parameter.seed
 flag_auto = parameter.flag_auto
 log_interval = parameter.log_interval
 patch_size  = 6
-strick_size = 3
-input_size  = 2000000
+strick_size = 1
+input_size  = 2000
 output_size = 300
+model_method = "gmm"
+
+for i in range(1, len(sys.argv)):
+    if sys.argv[i] == "e":
+        os.environ["CUDA_VISIBLE_DEVICES"] = sys.argv[i+1]
+        i += 1
+    if sys.argv[i] == "p":
+        patch_size = int(sys.argv[i+1])
+        i += 1
+    if sys.argv[i] == "b":
+        batch_size = int(sys.argv[i+1])
+        i += 1
+    if sys.argv[i] == "t":
+        test_batch_size = int(sys.argv[i+1])
+        i += 1        
+    if sys.argv[i] == "i":
+        input_size = int(sys.argv[i+1])
+        i += 1    
+    if sys.argv[i] == "m":
+        model_method = sys.argv[i+1]
+        i += 1
+
 
 if device == "cuda":
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -54,8 +77,10 @@ torch.manual_seed(seed)
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.Classification = NLClass.GMMDense(input_features = patch_size * patch_size, output_features = output_size, device = "cuda")
-        #self.Classification = NLClass.NLRWDense(input_features = patch_size * patch_size, output_features = output_size, work_style = "RW", UL_distant = 0.1, UU_distant = 0.5, device = "cuda")
+        if model_method == "rw":
+            self.Classification = NLClass.NLRWDense(input_features = patch_size * patch_size, output_features = output_size, work_style = "RW", UL_distant = 0.1, UU_distant = 0.5, device = "cuda", trainsize = test_batch_size)
+        if model_method == "gmm":
+            self.Classification = NLClass.GMMDense(input_features = patch_size * patch_size, output_features = output_size, device = "cuda", log_mark = True)
 
     def forward(self, x):
         return self.Classification(x)
@@ -85,7 +110,9 @@ def train( model, device, train_loader, optimizer, epoch):
         data, YData = data.to(device), torch.Tensor(YData).to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.binary_cross_entropy(output, YData)
+        loss = torch.mul(output, YData)
+        loss = torch.sum(loss, dim = 1)
+        loss = torch.reshape(-1, 1)
 
         loss.backward()
         optimizer.step()
@@ -111,7 +138,11 @@ def test(model, device, test_loader, save_model, data_y):
                 YData[i][target[i]] = 1
             data, YData, target = data.to(device), torch.Tensor(YData).to(device), target.to(device)
             output = model(data)
-            test_loss += F.binary_cross_entropy(output, YData, reduction='sum').item()
+            print(output_size[0])
+            print(YData.size())
+            loss = torch.mul(output, YData).to(device)
+            loss = torch.sum(loss, dim = 1).to(device)
+            test_loss += loss.cpu().detach().numpy()
             pred = output.argmax(dim=1, keepdim=True)
             results[loc:loc+len(pred)] = torch.reshape(pred, [-1]).to(device)
             loc += test_batch_size
@@ -120,7 +151,8 @@ def test(model, device, test_loader, save_model, data_y):
     
     test_loss /= len(data_y)
     correct = results.eq(data_y.view_as(results)).sum().item() 
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
+    print(test_loss, correct, len(test_loader.dataset))
+    #print('Test set: Average loss: {:.4f}, Accuracy: {}/{} '.format(test_loss, correct, len(test_loader.dataset),))
 
     if correct / len(test_loader.dataset) > 0.9:
         print("HIGH ACCURACY, TERMINATED THE PROCESSING")
@@ -142,6 +174,8 @@ def main():
     patchs = []
     for i in range(0, len(file_dir)):
         img = np.array(Image.open(file_dir[i]).convert("L"))
+        #print()
+        #print(file_dir[i])
         p = 0
         q = 0
         stop_patch = False
@@ -168,6 +202,8 @@ def main():
     loss_rate = lr
     #Initial Model
     model     = Net().to(device)
+    if model_method == "rw":
+        model = nn.DataParallel(model,device_ids=[0,1])
     print(model)
     optimizer = optim.SGD(model.parameters(), lr=loss_rate, momentum=momentum)
     
